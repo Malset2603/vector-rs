@@ -45,10 +45,10 @@ DEFAULT_SAMPLE_SIZE = 10
 DEFAULT_OUTPUT_FILENAME = "cuda_benchmark.svg"
 
 # Subplot 1 Parameter (K-Means Clusters K)
-DEFAULT_CLUSTERS = [2]
+DEFAULT_CLUSTERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
 # Subplot 2 Parameter (Batch Sizes)
-DEFAULT_BATCH_SIZES = [1]
+DEFAULT_BATCH_SIZES = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 
 # Environment Variables for Rust Criterion Execution
 ENV_CRITERION_METRIC = "CRITERION_METRIC"
@@ -593,7 +593,7 @@ def generate_cuda_svg(
 
     for val in steps_idx:
         y_pos = PLOT_1_BOTTOM - (val / scale_max_idx) * PLOT_1_HEIGHT
-        label_text = f"{val:.1f}s" if val % 1 != 0 else f"{int(val)}s"
+        label_text = f"{val:,.1f}s" if val % 1 != 0 else f"{int(val):,}s"
         grid_labels_1.append(
             f'  <text x="{Y_AXIS_LEFT - 12}" y="{y_pos + 4:.1f}" text-anchor="end" fill="{COLOR_GRID_TEXT}" font-size="12">{label_text}</text>'
         )
@@ -713,7 +713,11 @@ def generate_cuda_svg(
 
     for val in steps_ret:
         y_pos = PLOT_2_BOTTOM - (val / scale_max_ret) * PLOT_2_HEIGHT
-        label_text = f"{val / 1000:.0f}k QPS" if val >= 1000 else f"{int(val)} QPS"
+        if val >= 1000:
+            val_k = val / 1000.0
+            label_text = f"{val_k:,.1f}k QPS" if val_k % 1 != 0 else f"{int(val_k):,}k QPS"
+        else:
+            label_text = f"{int(val):,} QPS"
         grid_labels_2.append(
             f'  <text x="{Y_AXIS_LEFT - 12}" y="{y_pos + 4:.1f}" text-anchor="end" fill="{COLOR_GRID_TEXT}" font-size="12">{label_text}</text>'
         )
