@@ -45,10 +45,10 @@ DEFAULT_SAMPLE_SIZE = 10
 DEFAULT_OUTPUT_FILENAME = "cuda_benchmark.svg"
 
 # Subplot 1 Parameter (K-Means Clusters K)
-DEFAULT_CLUSTERS = [128, 256]
+DEFAULT_CLUSTERS = [2]
 
 # Subplot 2 Parameter (Batch Sizes)
-DEFAULT_BATCH_SIZES = [32, 64]
+DEFAULT_BATCH_SIZES = [1]
 
 # Environment Variables for Rust Criterion Execution
 ENV_CRITERION_METRIC = "CRITERION_METRIC"
@@ -559,8 +559,7 @@ def generate_cuda_svg(
     center_x = SVG_CANVAS_WIDTH / 2.0
     metric_label = get_metric_display_name(metric)
     cpu_count = os.cpu_count() or 4
-    cpu_label = f"{cpu_count}x Core CPU Baseline"
-    cpu_short = f"{cpu_count}x Core CPU"
+    cpu_label = f"{cpu_count}x Core CPU"
 
     subtitle_text = f"Hardware Acceleration vs. {cpu_label} (Evaluation across {num_gpus} NVIDIA GPUs | Metric: {metric_label}, N={num_vectors:,}, D={dimension}, Samples={sample_count:,})"
     footer_text = f"NVIDIA CUDA Multi-GPU Warp GEMM vs. Rayon Parallel {cpu_label}"
@@ -815,11 +814,11 @@ def generate_cuda_svg(
 
       <line x1="175" y1="7" x2="197" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
       <circle cx="186" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
-      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU</text>
 
       <line x1="320" y1="7" x2="342" y2="7" stroke="{COLOR_GPU_2}" stroke-width="3.5" />
       <circle cx="331" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_2}" stroke-width="2" />
-      <text x="348" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">2x GPU (DDP Distributed)</text>
+      <text x="348" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">2x GPU</text>
     </g>"""
     else:
         legend_1 = f"""    <!-- Legend Subplot 1 (Dedicated Row) -->
@@ -830,7 +829,7 @@ def generate_cuda_svg(
 
       <line x1="175" y1="7" x2="197" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
       <circle cx="186" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
-      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU</text>
     </g>"""
 
     if ret_data["gpu_2"]:
@@ -841,11 +840,11 @@ def generate_cuda_svg(
 
       <line x1="175" y1="7" x2="197" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
       <circle cx="186" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
-      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU</text>
 
       <line x1="320" y1="7" x2="342" y2="7" stroke="{COLOR_GPU_2}" stroke-width="3.5" />
       <circle cx="331" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_2}" stroke-width="2" />
-      <text x="348" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">2x GPU (DDP)</text>
+      <text x="348" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">2x GPU</text>
     </g>"""
     else:
         legend_2 = f"""    <!-- Legend Subplot 2 (Dedicated Row) -->
@@ -855,7 +854,7 @@ def generate_cuda_svg(
 
       <line x1="175" y1="7" x2="197" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
       <circle cx="186" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
-      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU</text>
     </g>"""
 
     svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SVG_CANVAS_WIDTH} {SVG_CANVAS_HEIGHT}" style="background-color: {COLOR_BG}; font-family: {SVG_FONT_FAMILY};">
