@@ -545,9 +545,12 @@ def generate_cuda_svg(
     Retrieval."""
     center_x = SVG_CANVAS_WIDTH / 2.0
     metric_label = get_metric_display_name(metric)
+    cpu_count = os.cpu_count() or 4
+    cpu_label = f"{cpu_count}x Core CPU Baseline"
+    cpu_short = f"{cpu_count}x Core CPU"
 
-    subtitle_text = f"Hardware Acceleration vs. CPU Baseline (Evaluation across {num_gpus} NVIDIA GPUs | Metric: {metric_label}, N={num_vectors:,}, D={dimension}, Samples={sample_count:,})"
-    footer_text = "NVIDIA CUDA Multi-GPU Warp GEMM vs. Rayon Parallel CPU Baseline"
+    subtitle_text = f"Hardware Acceleration vs. {cpu_label} (Evaluation across {num_gpus} NVIDIA GPUs | Metric: {metric_label}, N={num_vectors:,}, D={dimension}, Samples={sample_count:,})"
+    footer_text = f"NVIDIA CUDA Multi-GPU Warp GEMM vs. Rayon Parallel {cpu_label}"
 
     # ==========================================================================
     # SUBPLOT 1: CUDA K-MEANS INDEX TRAINING (TOP)
@@ -734,7 +737,7 @@ def generate_cuda_svg(
     # Baseline Full-Width Reference Line for Subplot 2
     cpu_base_y_2 = PLOT_2_BOTTOM - (without_cuda_qps / scale_max_ret) * PLOT_2_HEIGHT
     baseline_line_xml_2 = f'  <path d="M {Y_AXIS_LEFT} {cpu_base_y_2:.1f} L {Y_AXIS_RIGHT} {cpu_base_y_2:.1f}" fill="none" stroke="{COLOR_CPU}" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />'
-    baseline_text_xml_2 = f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{cpu_base_y_2 - 8:.1f}" text-anchor="end" fill="{COLOR_CPU}" font-size="11" font-weight="bold">Single CPU Baseline ({without_cuda_qps:,.0f} QPS)</text>'
+    baseline_text_xml_2 = f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{cpu_base_y_2 - 8:.1f}" text-anchor="end" fill="{COLOR_CPU}" font-size="11" font-weight="bold">{cpu_label} ({without_cuda_qps:,.0f} QPS)</text>'
 
     # Paths (Subplot 2)
     gpu1_path_2 = f"M {gpu1_pts_2[0][0]:.1f} {gpu1_pts_2[0][1]:.1f} " + " ".join(
@@ -776,54 +779,54 @@ def generate_cuda_svg(
     # Combined Legends XML (Dedicated Row with Clean Centered Hierarchy)
     if idx_data["gpu_2"]:
         legend_1 = f"""    <!-- Legend Subplot 1 (Dedicated Row) -->
-    <g transform="translate(310, 144)">
+    <g transform="translate(290, 144)">
       <line x1="0" y1="7" x2="22" y2="7" stroke="{COLOR_CPU}" stroke-width="2.5" stroke-dasharray="4,4" />
       <circle cx="11" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_CPU}" stroke-width="2" />
-      <text x="28" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">CPU Baseline</text>
+      <text x="28" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">{cpu_label}</text>
 
-      <line x1="135" y1="7" x2="157" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
-      <circle cx="146" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
-      <text x="163" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <line x1="175" y1="7" x2="197" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
+      <circle cx="186" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
+      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
 
-      <line x1="280" y1="7" x2="302" y2="7" stroke="{COLOR_GPU_2}" stroke-width="3.5" />
-      <circle cx="291" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_2}" stroke-width="2" />
-      <text x="308" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">2x GPU (DDP Distributed)</text>
+      <line x1="320" y1="7" x2="342" y2="7" stroke="{COLOR_GPU_2}" stroke-width="3.5" />
+      <circle cx="331" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_2}" stroke-width="2" />
+      <text x="348" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">2x GPU (DDP Distributed)</text>
     </g>"""
     else:
         legend_1 = f"""    <!-- Legend Subplot 1 (Dedicated Row) -->
-    <g transform="translate(390, 144)">
+    <g transform="translate(360, 144)">
       <line x1="0" y1="7" x2="22" y2="7" stroke="{COLOR_CPU}" stroke-width="2.5" stroke-dasharray="4,4" />
       <circle cx="11" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_CPU}" stroke-width="2" />
-      <text x="28" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">CPU Baseline</text>
+      <text x="28" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">{cpu_label}</text>
 
-      <line x1="140" y1="7" x2="162" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
-      <circle cx="151" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
-      <text x="168" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <line x1="175" y1="7" x2="197" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
+      <circle cx="186" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
+      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
     </g>"""
 
     if ret_data["gpu_2"]:
         legend_2 = f"""    <!-- Legend Subplot 2 (Dedicated Row) -->
-    <g transform="translate(310, 580)">
+    <g transform="translate(290, 580)">
       <line x1="0" y1="7" x2="22" y2="7" stroke="{COLOR_CPU}" stroke-width="2.5" stroke-dasharray="4,4" />
-      <text x="28" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">Single CPU Baseline</text>
+      <text x="28" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">{cpu_label}</text>
 
-      <line x1="165" y1="7" x2="187" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
-      <circle cx="176" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
-      <text x="193" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <line x1="175" y1="7" x2="197" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
+      <circle cx="186" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
+      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
 
-      <line x1="305" y1="7" x2="327" y2="7" stroke="{COLOR_GPU_2}" stroke-width="3.5" />
-      <circle cx="316" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_2}" stroke-width="2" />
-      <text x="333" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">2x GPU (DDP)</text>
+      <line x1="320" y1="7" x2="342" y2="7" stroke="{COLOR_GPU_2}" stroke-width="3.5" />
+      <circle cx="331" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_2}" stroke-width="2" />
+      <text x="348" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">2x GPU (DDP)</text>
     </g>"""
     else:
         legend_2 = f"""    <!-- Legend Subplot 2 (Dedicated Row) -->
-    <g transform="translate(380, 580)">
+    <g transform="translate(360, 580)">
       <line x1="0" y1="7" x2="22" y2="7" stroke="{COLOR_CPU}" stroke-width="2.5" stroke-dasharray="4,4" />
-      <text x="28" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">Single CPU Baseline</text>
+      <text x="28" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">{cpu_label}</text>
 
-      <line x1="165" y1="7" x2="187" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
-      <circle cx="176" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
-      <text x="193" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <line x1="175" y1="7" x2="197" y2="7" stroke="{COLOR_GPU_1}" stroke-width="3" />
+      <circle cx="186" cy="7" r="3.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2" />
+      <text x="203" y="11" fill="{COLOR_MAIN_TITLE}" font-size="11" font-weight="600">1x GPU (CUDA)</text>
     </g>"""
 
     svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SVG_CANVAS_WIDTH} {SVG_CANVAS_HEIGHT}" style="background-color: {COLOR_BG}; font-family: {SVG_FONT_FAMILY};">
@@ -1029,12 +1032,16 @@ def main() -> None:
 
     metric_label = get_metric_display_name(args.metric)
 
+    cpu_count = os.cpu_count() or 4
+    cpu_label = f"{cpu_count}x Core CPU Baseline"
+    cpu_short = f"{cpu_count}x Core CPU"
+
     print("=" * 76)
     print("VectorRS: Automated Unified NVIDIA CUDA End-to-End Benchmark & Stacked Plot")
     print(f"Workspace:    {workspace_root}")
     print(f"Script Dir:   {script_dir}")
     print(f"Output File:  {out_path}")
-    print(f"Comparison:   {args.gpus}x NVIDIA GPU (CUDA + DDP) vs. CPU Baseline")
+    print(f"Comparison:   {args.gpus}x NVIDIA GPU (CUDA + DDP) vs. {cpu_label}")
     print(
         f"Config:       Metric={metric_label} | N={args.vectors:,} vectors | Dimension={args.dim} | Samples={args.samples}"
     )
@@ -1082,43 +1089,43 @@ def main() -> None:
     )
     if args.gpus <= 1:
         print(
-            "{:<12} {:>16} {:>16} {:>18}".format(
-                "Clusters (K)", "CPU Duration", "1x GPU (CUDA)", "GPU Speedup"
+            "{:<12} {:>18} {:>16} {:>18}".format(
+                "Clusters (K)", f"{cpu_short} Duration", "1x GPU (CUDA)", "GPU Speedup"
             )
         )
-        print("-" * 68)
+        print("-" * 70)
         for idx, k in enumerate(args.clusters):
             cpu_dur_s = metrics_data["indexing"]["cpu"][idx]["duration_s"]
             gpu1_dur_s = metrics_data["indexing"]["gpu_1"][idx]["duration_s"]
             speedup = metrics_data["indexing"]["gpu_1"][idx]["speedup"]
             print(
-                "{:<12} {:>14.3f} s {:>14.3f} s {:>17.1f}x".format(
+                "{:<12} {:>16.3f} s {:>14.3f} s {:>17.1f}x".format(
                     f"K = {k}", cpu_dur_s, gpu1_dur_s, speedup
                 )
             )
-        print("-" * 68)
+        print("-" * 70)
     else:
         print(
-            "{:<12} {:>14} {:>14} {:>14} {:>16}".format(
+            "{:<12} {:>16} {:>14} {:>14} {:>16}".format(
                 "Clusters (K)",
-                "CPU Duration",
+                f"{cpu_short} Duration",
                 "1x GPU CUDA",
                 "2x GPU DDP",
                 "2x GPU Speedup",
             )
         )
-        print("-" * 76)
+        print("-" * 78)
         for idx, k in enumerate(args.clusters):
             cpu_dur_s = metrics_data["indexing"]["cpu"][idx]["duration_s"]
             gpu1_dur_s = metrics_data["indexing"]["gpu_1"][idx]["duration_s"]
             gpu2_dur_s = metrics_data["indexing"]["gpu_2"][idx]["duration_s"]
             speedup = metrics_data["indexing"]["gpu_2"][idx]["speedup"]
             print(
-                "{:<12} {:>12.3f} s {:>12.3f} s {:>12.3f} s {:>15.1f}x".format(
+                "{:<12} {:>14.3f} s {:>12.3f} s {:>12.3f} s {:>15.1f}x".format(
                     f"K = {k}", cpu_dur_s, gpu1_dur_s, gpu2_dur_s, speedup
                 )
             )
-        print("-" * 76)
+        print("-" * 78)
 
     # Print terminal summary table (Retrieval)
     print(
@@ -1127,41 +1134,41 @@ def main() -> None:
     without_cuda_qps = metrics_data["retrieval"]["without_cuda_qps"]
     if args.gpus <= 1:
         print(
-            "{:<12} {:>16} {:>16} {:>18}".format(
-                "Batch Size", "Single CPU QPS", "1x GPU QPS", "GPU Speedup"
+            "{:<12} {:>18} {:>16} {:>18}".format(
+                "Batch Size", f"{cpu_short} QPS", "1x GPU QPS", "GPU Speedup"
             )
         )
-        print("-" * 68)
+        print("-" * 70)
         for idx, b in enumerate(args.batches):
             g1_qps = metrics_data["retrieval"]["gpu_1"][idx]["qps"]
             speedup = metrics_data["retrieval"]["gpu_1"][idx]["speedup"]
             print(
-                "{:<12} {:>12,.0f} QPS {:>12,.0f} QPS {:>17.1f}x".format(
+                "{:<12} {:>14,.0f} QPS {:>12,.0f} QPS {:>17.1f}x".format(
                     f"Batch = {b}", without_cuda_qps, g1_qps, speedup
                 )
             )
-        print("-" * 68)
+        print("-" * 70)
     else:
         print(
-            "{:<12} {:>16} {:>14} {:>14} {:>16}".format(
+            "{:<12} {:>18} {:>14} {:>14} {:>16}".format(
                 "Batch Size",
-                "Single CPU QPS",
+                f"{cpu_short} QPS",
                 "1x GPU QPS",
                 "2x GPU QPS",
                 "2x GPU Speedup",
             )
         )
-        print("-" * 80)
+        print("-" * 82)
         for idx, b in enumerate(args.batches):
             g1_qps = metrics_data["retrieval"]["gpu_1"][idx]["qps"]
             g2_qps = metrics_data["retrieval"]["gpu_2"][idx]["qps"]
             speedup = metrics_data["retrieval"]["gpu_2"][idx]["speedup"]
             print(
-                "{:<12} {:>12,.0f} QPS {:>10,.0f} QPS {:>10,.0f} QPS {:>15.1f}x".format(
+                "{:<12} {:>14,.0f} QPS {:>10,.0f} QPS {:>10,.0f} QPS {:>15.1f}x".format(
                     f"Batch = {b}", without_cuda_qps, g1_qps, g2_qps, speedup
                 )
             )
-        print("-" * 80 + "\n")
+        print("-" * 82 + "\n")
 
     # Step 3: Generate Stacked SVG Plot
     generate_cuda_svg(

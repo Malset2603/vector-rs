@@ -491,10 +491,12 @@ def generate_query_svg(
         pts_hnsw.append((px, py))
 
     # Baseline Full-Width Line (Subplot 1)
+    cpu_count = os.cpu_count() or 4
+    cpu_label = f"{cpu_count}x Core CPU Baseline"
     flat_y_1 = PLOT_1_BOTTOM - (flat_lat_us / scale_max_hnsw) * PLOT_1_HEIGHT
     baseline_line_xml_1 = f'  <line x1="{Y_AXIS_LEFT}" y1="{flat_y_1:.1f}" x2="{Y_AXIS_RIGHT}" y2="{flat_y_1:.1f}" stroke="{COLOR_BASELINE}" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />'
     baseline_text_xml_1 = (
-        f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{flat_y_1 - 7:.1f}" text-anchor="end" fill="{COLOR_BASELINE}" font-size="11" font-weight="bold">Single CPU Baseline</text>\n'
+        f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{flat_y_1 - 7:.1f}" text-anchor="end" fill="{COLOR_BASELINE}" font-size="11" font-weight="bold">{cpu_label}</text>\n'
         f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{flat_y_1 + 14:.1f}" text-anchor="end" fill="{COLOR_BASELINE}" font-size="10.5" font-weight="600">{flat_lat_us:.2f} µs | {flat_qps:,} QPS</text>'
     )
 
@@ -572,7 +574,7 @@ def generate_query_svg(
     flat_y_2 = PLOT_2_BOTTOM - (flat_lat_us / scale_max_ivf) * PLOT_2_HEIGHT
     baseline_line_xml_2 = f'  <line x1="{Y_AXIS_LEFT}" y1="{flat_y_2:.1f}" x2="{Y_AXIS_RIGHT}" y2="{flat_y_2:.1f}" stroke="{COLOR_BASELINE}" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />'
     baseline_text_xml_2 = (
-        f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{flat_y_2 - 7:.1f}" text-anchor="end" fill="{COLOR_BASELINE}" font-size="11" font-weight="bold">Single CPU Baseline</text>\n'
+        f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{flat_y_2 - 7:.1f}" text-anchor="end" fill="{COLOR_BASELINE}" font-size="11" font-weight="bold">{cpu_label}</text>\n'
         f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{flat_y_2 + 14:.1f}" text-anchor="end" fill="{COLOR_BASELINE}" font-size="10.5" font-weight="600">{flat_lat_us:.2f} µs | {flat_qps:,} QPS</text>'
     )
 

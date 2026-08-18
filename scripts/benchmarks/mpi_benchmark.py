@@ -267,10 +267,11 @@ def collect_benchmark_series(
             dur_cpu = FALLBACK_WITHOUT_MPI_SEC
 
         without_mpi_durations = [dur_cpu for _ in RANKS]
+        cpu_count = os.cpu_count() or 4
         series_list.append(
             {
                 "id": "without_mpi",
-                "label": "Without MPI (Single CPU)",
+                "label": f"Without MPI ({cpu_count}x Core CPU)",
                 "color": COLOR_WITHOUT_MPI,
                 "dash": "6,4",
                 "stroke_width": 2.5,
