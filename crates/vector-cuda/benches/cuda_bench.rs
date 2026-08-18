@@ -104,6 +104,7 @@ fn bench_cuda_knn_batch(c: &mut Criterion) {
     let n = get_target_num_vectors();
     let metric = get_target_metric();
     let batch_sizes = get_target_batch_sizes();
+    let num_gpus = get_target_num_gpus();
 
     if let Ok(sample_size_str) = std::env::var("CRITERION_SAMPLE_SIZE") {
         if let Ok(sample_size) = sample_size_str.parse::<usize>() {
@@ -112,16 +113,40 @@ fn bench_cuda_knn_batch(c: &mut Criterion) {
     }
 
     let dataset = generate_flat_vectors(n, dimension);
-    let engine = CudaKnnEngine::new(&dataset, dimension, metric);
     let k = 10;
+
+    // CPU Emulator (Rayon + SIMD)
+    let engine_cpu = DistributedKnnEngine::emulator(&dataset, dimension, 1, GpuShardMode::Sharded, metric);
+    
+    // 1x GPU
+    let engine_gpu1 = DistributedKnnEngine::try_new(&dataset, dimension, 1, GpuShardMode::Sharded, metric)
+        .unwrap_or_else(|_| DistributedKnnEngine::emulator(&dataset, dimension, 1, GpuShardMode::Sharded, metric));
+        
+    // 2x GPU
+    let engine_gpu2 = if num_gpus >= 2 {
+        Some(DistributedKnnEngine::try_new(&dataset, dimension, 2, GpuShardMode::Sharded, metric)
+            .unwrap_or_else(|_| DistributedKnnEngine::emulator(&dataset, dimension, 2, GpuShardMode::Sharded, metric)))
+    } else {
+        None
+    };
 
     for batch_size in batch_sizes {
         let queries = generate_flat_vectors(batch_size, dimension);
         group.throughput(Throughput::Elements(batch_size as u64));
 
-        group.bench_function(BenchmarkId::new("batch_size", batch_size), |b| {
-            b.iter(|| black_box(engine.search_batch(black_box(&queries), black_box(k))));
+        group.bench_function(BenchmarkId::new("cpu", batch_size), |b| {
+            b.iter(|| black_box(engine_cpu.search_batch(black_box(&queries), black_box(k))));
         });
+
+        group.bench_function(BenchmarkId::new("gpu_1", batch_size), |b| {
+            b.iter(|| black_box(engine_gpu1.search_batch(black_box(&queries), black_box(k))));
+        });
+
+        if let Some(engine2) = &engine_gpu2 {
+            group.bench_function(BenchmarkId::new("gpu_2", batch_size), |b| {
+                b.iter(|| black_box(engine2.search_batch(black_box(&queries), black_box(k))));
+            });
+        }
     }
 
     group.finish();

@@ -348,7 +348,7 @@ def collect_cuda_metrics(
 
     for k in clusters:
         # CPU Latency
-        cpu_path = f"cuda_kmeans_clustering/cpu_kmeans_k{k}"
+        cpu_path = f"cuda_kmeans_clustering/cpu/{k}"
         f_cpu = (
             find_estimates_file(criterion_dir, cpu_path)
             if criterion_dir.exists()
@@ -367,7 +367,7 @@ def collect_cuda_metrics(
         )
 
         # 1x GPU Latency
-        gpu1_path = f"cuda_kmeans_clustering/gpu_kmeans_1gpu_k{k}"
+        gpu1_path = f"cuda_kmeans_clustering/gpu_1/{k}"
         f_gpu1 = (
             find_estimates_file(criterion_dir, gpu1_path)
             if criterion_dir.exists()
@@ -393,7 +393,7 @@ def collect_cuda_metrics(
 
         # 2x GPU Latency
         if num_gpus >= 2:
-            gpu2_path = f"cuda_kmeans_clustering/gpu_kmeans_2gpus_k{k}"
+            gpu2_path = f"cuda_kmeans_clustering/gpu_2/{k}"
             f_gpu2 = (
                 find_estimates_file(criterion_dir, gpu2_path)
                 if criterion_dir.exists()
@@ -420,26 +420,39 @@ def collect_cuda_metrics(
     # ==========================================================================
     # Subplot 2: Batch KNN Retrieval Metrics
     # ==========================================================================
-    without_cuda_qps = FALLBACK_RETRIEVAL_WITHOUT_CUDA_QPS
-    if criterion_dir.exists():
-        f_cpu_retrieval = find_estimates_file(
-            criterion_dir, "cuda_knn_batch_search/cpu_knn_b1"
-        )
-        if f_cpu_retrieval:
-            with contextlib.suppress(
-                OSError, ValueError, KeyError, json.JSONDecodeError
-            ):
-                ns = get_estimate_ns(f_cpu_retrieval)
-                without_cuda_qps = 1e9 / ns if ns > 0 else without_cuda_qps
+    retrieval_cpu = []
 
     retrieval_gpu1 = []
     retrieval_gpu2 = []
 
     for b in batch_sizes:
+        # CPU Retrieval
+        f_cpu_ret = (
+            find_estimates_file(
+                criterion_dir, f"cuda_knn_batch_search/cpu/{b}"
+            )
+            if criterion_dir.exists()
+            else None
+        )
+        if f_cpu_ret:
+            try:
+                ns = get_estimate_ns(f_cpu_ret)
+                qps_cpu = (
+                    (b * 1e9) / ns
+                    if ns > 0
+                    else FALLBACK_RETRIEVAL_WITHOUT_CUDA_QPS
+                )
+            except (OSError, ValueError, KeyError, json.JSONDecodeError):
+                qps_cpu = FALLBACK_RETRIEVAL_WITHOUT_CUDA_QPS
+        else:
+            qps_cpu = FALLBACK_RETRIEVAL_WITHOUT_CUDA_QPS
+
+        retrieval_cpu.append({"batch": b, "qps": qps_cpu})
+
         # 1x GPU Retrieval
         f_g1_ret = (
             find_estimates_file(
-                criterion_dir, f"cuda_knn_batch_search/gpu_knn_1gpu_b{b}"
+                criterion_dir, f"cuda_knn_batch_search/gpu_1/{b}"
             )
             if criterion_dir.exists()
             else None
@@ -458,14 +471,14 @@ def collect_cuda_metrics(
             qps_1 = FALLBACK_RETRIEVAL_GPU1_QPS.get(b, 25000.0)
 
         retrieval_gpu1.append(
-            {"batch": b, "qps": qps_1, "speedup": qps_1 / without_cuda_qps}
+            {"batch": b, "qps": qps_1, "speedup": qps_1 / qps_cpu}
         )
 
         # 2x GPU Retrieval
         if num_gpus >= 2:
             f_g2_ret = (
                 find_estimates_file(
-                    criterion_dir, f"cuda_knn_batch_search/gpu_knn_2gpus_b{b}"
+                    criterion_dir, f"cuda_knn_batch_search/gpu_2/{b}"
                 )
                 if criterion_dir.exists()
                 else None
@@ -484,7 +497,7 @@ def collect_cuda_metrics(
                 qps_2 = FALLBACK_RETRIEVAL_GPU2_QPS.get(b, 50000.0)
 
             retrieval_gpu2.append(
-                {"batch": b, "qps": qps_2, "speedup": qps_2 / without_cuda_qps}
+                {"batch": b, "qps": qps_2, "speedup": qps_2 / qps_cpu}
             )
 
     return {
@@ -497,7 +510,7 @@ def collect_cuda_metrics(
             "gpu_2": indexing_gpu2 if num_gpus >= 2 else None,
         },
         "retrieval": {
-            "without_cuda_qps": without_cuda_qps,
+            "cpu": retrieval_cpu,
             "gpu_1": retrieval_gpu1,
             "gpu_2": retrieval_gpu2 if num_gpus >= 2 else None,
         },
@@ -678,13 +691,12 @@ def generate_cuda_svg(
     ret_data = data["retrieval"]
     batches = data["batch_sizes"]
     num_batches = len(batches)
-    without_cuda_qps = ret_data["without_cuda_qps"]
 
     # Scale in QPS
     max_ret_qps = max(
         max(p["qps"] for p in ret_data["gpu_1"]),
         max(p["qps"] for p in ret_data["gpu_2"]) if ret_data["gpu_2"] else 0.0,
-        without_cuda_qps,
+        max(p["qps"] for p in ret_data["cpu"]),
     )
     scale_max_ret, steps_ret = calculate_dynamic_scale(max_ret_qps)
 
@@ -713,6 +725,10 @@ def generate_cuda_svg(
     )
     x_coords_2 = [PLOT_2_X_START + i * step_x_2 for i in range(num_batches)]
 
+    cpu_pts_2 = [
+        (x_coords_2[i], PLOT_2_BOTTOM - (p["qps"] / scale_max_ret) * PLOT_2_HEIGHT)
+        for i, p in enumerate(ret_data["cpu"])
+    ]
     gpu1_pts_2 = [
         (x_coords_2[i], PLOT_2_BOTTOM - (p["qps"] / scale_max_ret) * PLOT_2_HEIGHT)
         for i, p in enumerate(ret_data["gpu_1"])
@@ -726,12 +742,10 @@ def generate_cuda_svg(
         else []
     )
 
-    # Baseline Full-Width Reference Line for Subplot 2
-    cpu_base_y_2 = PLOT_2_BOTTOM - (without_cuda_qps / scale_max_ret) * PLOT_2_HEIGHT
-    baseline_line_xml_2 = f'  <path d="M {Y_AXIS_LEFT} {cpu_base_y_2:.1f} L {Y_AXIS_RIGHT} {cpu_base_y_2:.1f}" fill="none" stroke="{COLOR_CPU}" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />'
-    baseline_text_xml_2 = f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{cpu_base_y_2 - 8:.1f}" text-anchor="end" fill="{COLOR_CPU}" font-size="11" font-weight="bold">{without_cuda_qps:,.0f} QPS</text>'
-
     # Paths (Subplot 2)
+    cpu_path_2 = f"M {cpu_pts_2[0][0]:.1f} {cpu_pts_2[0][1]:.1f} " + " ".join(
+        [f"L {p[0]:.1f} {p[1]:.1f}" for p in cpu_pts_2[1:]]
+    )
     gpu1_path_2 = f"M {gpu1_pts_2[0][0]:.1f} {gpu1_pts_2[0][1]:.1f} " + " ".join(
         [f"L {p[0]:.1f} {p[1]:.1f}" for p in gpu1_pts_2[1:]]
     )
@@ -752,6 +766,7 @@ def generate_cuda_svg(
             (
                 f'  <line x1="{cx:.1f}" y1="{PLOT_2_BOTTOM + 6:.1f}" x2="{cx:.1f}" y2="{PLOT_2_BOTTOM:.1f}" stroke="{COLOR_GRID_LINE}" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.35" />',
                 f'  <text x="{cx:.1f}" y="{PLOT_2_BOTTOM + 22:.1f}" text-anchor="middle" fill="{COLOR_TEXT_PRIMARY}" font-size="13" font-weight="bold">{b_val}</text>',
+                f'  <circle cx="{cpu_pts_2[i][0]:.1f}" cy="{cpu_pts_2[i][1]:.1f}" r="4.5" fill="{COLOR_BG}" stroke="{COLOR_CPU}" stroke-width="2" />',
                 f'  <circle cx="{gpu1_pts_2[i][0]:.1f}" cy="{gpu1_pts_2[i][1]:.1f}" r="8" fill="{COLOR_GPU_1}" opacity="0.22" />',
                 f'  <circle cx="{gpu1_pts_2[i][0]:.1f}" cy="{gpu1_pts_2[i][1]:.1f}" r="4.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_1}" stroke-width="2.5" />',
             )
@@ -765,15 +780,19 @@ def generate_cuda_svg(
             )
 
     # Peak QPS Callouts (Subplot 2)
+    peak_idx_cpu = max(range(num_batches), key=lambda i: ret_data["cpu"][i]["qps"])
+    peak_qps_cpu = ret_data["cpu"][peak_idx_cpu]["qps"]
+    peak_pt_cpu = cpu_pts_2[peak_idx_cpu]
+
     peak_idx_gpu1 = max(range(num_batches), key=lambda i: ret_data["gpu_1"][i]["qps"])
     peak_qps_gpu1 = ret_data["gpu_1"][peak_idx_gpu1]["qps"]
     peak_pt_gpu1 = gpu1_pts_2[peak_idx_gpu1]
 
     callouts_2 = [
         "  <!-- Peak QPS Callouts (Subplot 2) -->",
+        f'  <text x="{peak_pt_cpu[0]:.1f}" y="{peak_pt_cpu[1] - 14:.1f}" text-anchor="middle" fill="{COLOR_CPU}" font-size="11" font-weight="bold">{peak_qps_cpu:,.0f} QPS</text>',
         f'  <text x="{peak_pt_gpu1[0]:.1f}" y="{peak_pt_gpu1[1] - 14:.1f}" text-anchor="middle" fill="{COLOR_GPU_1}" font-size="11" font-weight="bold">{peak_qps_gpu1:,.0f} QPS</text>',
     ]
-
     if ret_data["gpu_2"]:
         peak_idx_gpu2 = max(range(num_batches), key=lambda i: ret_data["gpu_2"][i]["qps"])
         peak_qps_gpu2 = ret_data["gpu_2"][peak_idx_gpu2]["qps"]
@@ -913,11 +932,8 @@ def generate_cuda_svg(
 {chr(10).join(grid_lines_2)}
 {chr(10).join(grid_labels_2)}
 
-    <!-- Subplot 2 Single CPU Full-Width Baseline Reference Line -->
-{baseline_line_xml_2}
-{baseline_text_xml_2}
-
-    <!-- 1x GPU CUDA Line -->
+    <!-- Data Lines (Subplot 2) -->
+    <path d="{cpu_path_2}" fill="none" stroke="{COLOR_CPU}" stroke-width="2" stroke-dasharray="6,4" />
     <path d="{gpu1_path_2}" fill="none" stroke="{COLOR_GPU_1}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#cudaGlow)" />
     <path d="{gpu1_path_2}" fill="none" stroke="{COLOR_GPU_1}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
 
