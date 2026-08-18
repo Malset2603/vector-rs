@@ -1,7 +1,7 @@
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use rand::Rng;
 use vector_cuda::{
-    CudaKMeansEngine, CudaKnnEngine, DistributedKMeansEngine, DistributedKnnEngine, GpuShardMode,
+    CudaKMeansEngine, DistributedKMeansEngine, DistributedKnnEngine, GpuShardMode,
 };
 use vector_index::DistanceMetric;
 

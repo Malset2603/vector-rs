@@ -1160,7 +1160,6 @@ def main() -> None:
     print(
         f"\n--- 2. BATCH KNN RETRIEVAL THROUGHPUT (N={args.vectors:,}, D={args.dim}, Top-K=10) ---"
     )
-    without_cuda_qps = metrics_data["retrieval"]["without_cuda_qps"]
     if args.gpus <= 1:
         print(
             "{:<12} {:>18} {:>16} {:>18}".format(
@@ -1169,11 +1168,12 @@ def main() -> None:
         )
         print("-" * 70)
         for idx, b in enumerate(args.batches):
+            cpu_qps = metrics_data["retrieval"]["cpu"][idx]["qps"]
             g1_qps = metrics_data["retrieval"]["gpu_1"][idx]["qps"]
             speedup = metrics_data["retrieval"]["gpu_1"][idx]["speedup"]
             print(
                 "{:<12} {:>14,.0f} QPS {:>12,.0f} QPS {:>17.1f}x".format(
-                    f"Batch = {b}", without_cuda_qps, g1_qps, speedup
+                    f"Batch = {b}", cpu_qps, g1_qps, speedup
                 )
             )
         print("-" * 70)
@@ -1189,12 +1189,13 @@ def main() -> None:
         )
         print("-" * 82)
         for idx, b in enumerate(args.batches):
+            cpu_qps = metrics_data["retrieval"]["cpu"][idx]["qps"]
             g1_qps = metrics_data["retrieval"]["gpu_1"][idx]["qps"]
             g2_qps = metrics_data["retrieval"]["gpu_2"][idx]["qps"]
             speedup = metrics_data["retrieval"]["gpu_2"][idx]["speedup"]
             print(
                 "{:<12} {:>14,.0f} QPS {:>10,.0f} QPS {:>10,.0f} QPS {:>15.1f}x".format(
-                    f"Batch = {b}", without_cuda_qps, g1_qps, g2_qps, speedup
+                    f"Batch = {b}", cpu_qps, g1_qps, g2_qps, speedup
                 )
             )
         print("-" * 82 + "\n")
