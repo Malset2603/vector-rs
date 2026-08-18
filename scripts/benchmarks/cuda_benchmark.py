@@ -45,10 +45,10 @@ DEFAULT_SAMPLE_SIZE = 4
 DEFAULT_OUTPUT_FILENAME = "cuda_benchmark.svg"
 
 # Subplot 1 Parameter (K-Means Clusters K)
-DEFAULT_CLUSTERS = [16, 32, 64, 128, 256]
+DEFAULT_CLUSTERS = [128, 256]
 
 # Subplot 2 Parameter (Batch Sizes)
-DEFAULT_BATCH_SIZES = [8, 16, 32, 64]
+DEFAULT_BATCH_SIZES = [32, 64]
 
 # Environment Variables for Rust Criterion Execution
 ENV_CRITERION_METRIC = "CRITERION_METRIC"
