@@ -41,14 +41,14 @@ DEFAULT_METRIC = "cosine"
 DEFAULT_NUM_VECTORS = 100_000
 DEFAULT_DIMENSION = 768
 DEFAULT_MAX_ITERS = 15
-DEFAULT_SAMPLE_SIZE = 100
+DEFAULT_SAMPLE_SIZE = 10
 DEFAULT_OUTPUT_FILENAME = "cuda_benchmark.svg"
 
 # Subplot 1 Parameter (K-Means Clusters K)
 DEFAULT_CLUSTERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
 # Subplot 2 Parameter (Batch Sizes)
-DEFAULT_BATCH_SIZES = [1, 2, 4, 8, 16, 32, 64, 128]
+DEFAULT_BATCH_SIZES = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 
 # Environment Variables for Rust Criterion Execution
 ENV_CRITERION_METRIC = "CRITERION_METRIC"
@@ -637,24 +637,16 @@ def generate_cuda_svg(
     last_x_1 = x_coords_1[-1]
     cpu_last_s = idx_data["cpu"][last_idx]["duration_s"]
     gpu1_last_s = idx_data["gpu_1"][last_idx]["duration_s"]
-    gpu1_speedup = idx_data["gpu_1"][last_idx]["speedup"]
 
     callouts_1 = [
         "  <!-- End-of-Line Callouts (Subplot 1) -->",
-        f'  <text x="{last_x_1 + 14:.1f}" y="{cpu_pts_1[last_idx][1] + 4:.1f}" text-anchor="start" fill="{COLOR_CPU}" font-size="11" font-weight="bold">CPU ({cpu_last_s:.3f}s)</text>',
+        f'  <text x="{last_x_1 + 14:.1f}" y="{cpu_pts_1[last_idx][1] + 4:.1f}" text-anchor="start" fill="{COLOR_CPU}" font-size="11" font-weight="bold">{cpu_last_s:.3f}s</text>',
+        f'  <text x="{last_x_1 + 14:.1f}" y="{gpu1_pts_1[last_idx][1] + 4:.1f}" text-anchor="start" fill="{COLOR_GPU_1}" font-size="11" font-weight="bold">{gpu1_last_s:.3f}s</text>',
     ]
-    if not idx_data["gpu_2"]:
-        callouts_1.append(
-            f'  <text x="{last_x_1 + 14:.1f}" y="{gpu1_pts_1[last_idx][1] + 4:.1f}" text-anchor="start" fill="{COLOR_GPU_1}" font-size="11" font-weight="bold">1x GPU ({gpu1_last_s:.3f}s | {gpu1_speedup:.1f}x)</text>'
-        )
-    else:
-        callouts_1.append(
-            f'  <text x="{last_x_1 + 14:.1f}" y="{gpu1_pts_1[last_idx][1] - 3:.1f}" text-anchor="start" fill="{COLOR_GPU_1}" font-size="10" font-weight="bold">1x GPU ({gpu1_last_s:.3f}s)</text>'
-        )
+    if idx_data["gpu_2"]:
         gpu2_last_s = idx_data["gpu_2"][last_idx]["duration_s"]
-        gpu2_speedup = idx_data["gpu_2"][last_idx]["speedup"]
         callouts_1.append(
-            f'  <text x="{last_x_1 + 14:.1f}" y="{gpu2_pts_1[last_idx][1] + 11:.1f}" text-anchor="start" fill="{COLOR_GPU_2}" font-size="10" font-weight="bold">2x GPU ({gpu2_last_s:.3f}s | {gpu2_speedup:.1f}x)</text>'
+            f'  <text x="{last_x_1 + 14:.1f}" y="{gpu2_pts_1[last_idx][1] + 4:.1f}" text-anchor="start" fill="{COLOR_GPU_2}" font-size="11" font-weight="bold">{gpu2_last_s:.3f}s</text>'
         )
 
     # Markers (Subplot 1)
@@ -737,7 +729,7 @@ def generate_cuda_svg(
     # Baseline Full-Width Reference Line for Subplot 2
     cpu_base_y_2 = PLOT_2_BOTTOM - (without_cuda_qps / scale_max_ret) * PLOT_2_HEIGHT
     baseline_line_xml_2 = f'  <path d="M {Y_AXIS_LEFT} {cpu_base_y_2:.1f} L {Y_AXIS_RIGHT} {cpu_base_y_2:.1f}" fill="none" stroke="{COLOR_CPU}" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />'
-    baseline_text_xml_2 = f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{cpu_base_y_2 - 8:.1f}" text-anchor="end" fill="{COLOR_CPU}" font-size="11" font-weight="bold">{cpu_label} ({without_cuda_qps:,.0f} QPS)</text>'
+    baseline_text_xml_2 = f'  <text x="{Y_AXIS_RIGHT - 8:.1f}" y="{cpu_base_y_2 - 8:.1f}" text-anchor="end" fill="{COLOR_CPU}" font-size="11" font-weight="bold">{without_cuda_qps:,.0f} QPS</text>'
 
     # Paths (Subplot 2)
     gpu1_path_2 = f"M {gpu1_pts_2[0][0]:.1f} {gpu1_pts_2[0][1]:.1f} " + " ".join(
@@ -771,6 +763,24 @@ def generate_cuda_svg(
                     f'  <circle cx="{gpu2_pts_2[i][0]:.1f}" cy="{gpu2_pts_2[i][1]:.1f}" r="4.5" fill="{COLOR_BG}" stroke="{COLOR_GPU_2}" stroke-width="2.5" />',
                 )
             )
+
+    # Peak QPS Callouts (Subplot 2)
+    peak_idx_gpu1 = max(range(num_batches), key=lambda i: ret_data["gpu_1"][i]["qps"])
+    peak_qps_gpu1 = ret_data["gpu_1"][peak_idx_gpu1]["qps"]
+    peak_pt_gpu1 = gpu1_pts_2[peak_idx_gpu1]
+
+    callouts_2 = [
+        "  <!-- Peak QPS Callouts (Subplot 2) -->",
+        f'  <text x="{peak_pt_gpu1[0]:.1f}" y="{peak_pt_gpu1[1] - 14:.1f}" text-anchor="middle" fill="{COLOR_GPU_1}" font-size="11" font-weight="bold">{peak_qps_gpu1:,.0f} QPS</text>',
+    ]
+
+    if ret_data["gpu_2"]:
+        peak_idx_gpu2 = max(range(num_batches), key=lambda i: ret_data["gpu_2"][i]["qps"])
+        peak_qps_gpu2 = ret_data["gpu_2"][peak_idx_gpu2]["qps"]
+        peak_pt_gpu2 = gpu2_pts_2[peak_idx_gpu2]
+        callouts_2.append(
+            f'  <text x="{peak_pt_gpu2[0]:.1f}" y="{peak_pt_gpu2[1] - 14:.1f}" text-anchor="middle" fill="{COLOR_GPU_2}" font-size="11" font-weight="bold">{peak_qps_gpu2:,.0f} QPS</text>'
+        )
 
     # Y-axis rotated titles midpoints
     y_axis_mid_1 = PLOT_1_BOTTOM - (PLOT_1_HEIGHT / 2.0)
@@ -917,6 +927,9 @@ def generate_cuda_svg(
 
     <!-- Subplot 2 Markers -->
 {chr(10).join(markers_2)}
+
+    <!-- Subplot 2 Peak QPS Callouts -->
+{chr(10).join(callouts_2)}
 
     <!-- Subplot 2 X-Axis Title -->
     <text x="{center_x}" y="{PLOT_2_BOTTOM + 45}" text-anchor="middle" fill="{COLOR_AXIS_TITLE}" font-size="11.5" font-weight="600" letter-spacing="0.5px">Query Batch Size (Concurrent Vectors per GEMM Kernel)</text>

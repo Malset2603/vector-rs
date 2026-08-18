@@ -12,7 +12,7 @@
 
   <!-- Main Title & Subtitle -->
   <text x="530.0" y="38" text-anchor="middle" fill="#f8f8f2" font-size="21" font-weight="bold">VectorRS: End-to-End NVIDIA CUDA Hardware Acceleration Benchmark</text>
-  <text x="530.0" y="64" text-anchor="middle" fill="#9d9eb4" font-size="12.5">Hardware Acceleration vs. CPU Baseline (Evaluation across 2 NVIDIA GPUs | Metric: Cosine Similarity, N=10,000, D=768, Samples=10)</text>
+  <text x="530.0" y="64" text-anchor="middle" fill="#9d9eb4" font-size="12.5">Hardware Acceleration vs. 8x Core CPU Baseline (Evaluation across 2 NVIDIA GPUs | Metric: Cosine Similarity, N=100,000, D=768, Samples=100)</text>
 
   <!-- ======================================================================== -->
   <!-- SUBPLOT 1: CUDA K-MEANS INDEX TRAINING (TOP) -->
@@ -23,18 +23,18 @@
     <text x="530.0" y="124" text-anchor="middle" fill="#9d9eb4" font-size="11.5">Offline Index Build Phase (15 Iters)</text>
 
     <!-- Legend Subplot 1 (Dedicated Row) -->
-    <g transform="translate(310, 144)">
+    <g transform="translate(290, 144)">
       <line x1="0" y1="7" x2="22" y2="7" stroke="#f87171" stroke-width="2.5" stroke-dasharray="4,4" />
       <circle cx="11" cy="7" r="3.5" fill="#181824" stroke="#f87171" stroke-width="2" />
-      <text x="28" y="11" fill="#f8f8f2" font-size="11" font-weight="600">CPU Baseline</text>
+      <text x="28" y="11" fill="#f8f8f2" font-size="11" font-weight="600">8x Core CPU Baseline</text>
 
-      <line x1="135" y1="7" x2="157" y2="7" stroke="#38bdf8" stroke-width="3" />
-      <circle cx="146" cy="7" r="3.5" fill="#181824" stroke="#38bdf8" stroke-width="2" />
-      <text x="163" y="11" fill="#f8f8f2" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <line x1="175" y1="7" x2="197" y2="7" stroke="#38bdf8" stroke-width="3" />
+      <circle cx="186" cy="7" r="3.5" fill="#181824" stroke="#38bdf8" stroke-width="2" />
+      <text x="203" y="11" fill="#f8f8f2" font-size="11" font-weight="600">1x GPU (CUDA)</text>
 
-      <line x1="280" y1="7" x2="302" y2="7" stroke="#34d399" stroke-width="3.5" />
-      <circle cx="291" cy="7" r="3.5" fill="#181824" stroke="#34d399" stroke-width="2" />
-      <text x="308" y="11" fill="#f8f8f2" font-size="11" font-weight="600">2x GPU (DDP Distributed)</text>
+      <line x1="320" y1="7" x2="342" y2="7" stroke="#34d399" stroke-width="3.5" />
+      <circle cx="331" cy="7" r="3.5" fill="#181824" stroke="#34d399" stroke-width="2" />
+      <text x="348" y="11" fill="#f8f8f2" font-size="11" font-weight="600">2x GPU (DDP Distributed)</text>
     </g>
 
     <!-- Subplot 1 Y-Axis Title (Rotated) -->
@@ -47,12 +47,12 @@
   <line x1="110.0" y1="271.0" x2="960.0" y2="271.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
   <line x1="110.0" y1="223.0" x2="960.0" y2="223.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
   <line x1="110.0" y1="175.0" x2="960.0" y2="175.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
-  <text x="98.0" y="419.0" text-anchor="end" fill="#6272a4" font-size="12">0.0s</text>
-  <text x="98.0" y="371.0" text-anchor="end" fill="#6272a4" font-size="12">2.0s</text>
-  <text x="98.0" y="323.0" text-anchor="end" fill="#6272a4" font-size="12">4.0s</text>
-  <text x="98.0" y="275.0" text-anchor="end" fill="#6272a4" font-size="12">6.0s</text>
-  <text x="98.0" y="227.0" text-anchor="end" fill="#6272a4" font-size="12">8.0s</text>
-  <text x="98.0" y="179.0" text-anchor="end" fill="#6272a4" font-size="12">10.0s</text>
+  <text x="98.0" y="419.0" text-anchor="end" fill="#6272a4" font-size="12">0s</text>
+  <text x="98.0" y="371.0" text-anchor="end" fill="#6272a4" font-size="12">2s</text>
+  <text x="98.0" y="323.0" text-anchor="end" fill="#6272a4" font-size="12">4s</text>
+  <text x="98.0" y="275.0" text-anchor="end" fill="#6272a4" font-size="12">6s</text>
+  <text x="98.0" y="227.0" text-anchor="end" fill="#6272a4" font-size="12">8s</text>
+  <text x="98.0" y="179.0" text-anchor="end" fill="#6272a4" font-size="12">10s</text>
 
     <!-- CPU Baseline Line -->
     <path d="M 160.0 413.9 L 236.7 413.6 L 313.3 412.3 L 390.0 410.2 L 466.7 405.9 L 543.3 396.3 L 620.0 386.8 L 696.7 373.5 L 773.3 352.1 L 850.0 290.0" fill="none" stroke="#f87171" stroke-width="2.5" stroke-dasharray="6,6" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
@@ -139,9 +139,9 @@
 
     <!-- Subplot 1 Callouts -->
   <!-- End-of-Line Callouts (Subplot 1) -->
-  <text x="864.0" y="294.0" text-anchor="start" fill="#f87171" font-size="11" font-weight="bold">CPU (5.208s)</text>
-  <text x="864.0" y="232.5" text-anchor="start" fill="#38bdf8" font-size="10" font-weight="bold">1x GPU (7.480s)</text>
-  <text x="864.0" y="420.2" text-anchor="start" fill="#34d399" font-size="10" font-weight="bold">2x GPU (0.242s | 21.6x)</text>
+  <text x="864.0" y="294.0" text-anchor="start" fill="#f87171" font-size="11" font-weight="bold">5.208s</text>
+  <text x="864.0" y="239.5" text-anchor="start" fill="#38bdf8" font-size="11" font-weight="bold">7.480s</text>
+  <text x="864.0" y="413.2" text-anchor="start" fill="#34d399" font-size="11" font-weight="bold">0.242s</text>
 
     <!-- Subplot 1 X-Axis Title -->
     <text x="530.0" y="460.0" text-anchor="middle" fill="#bd93f9" font-size="11.5" font-weight="600" letter-spacing="0.5px">Index Partition Cluster Count K (Voronoi Cell Granularity)</text>
@@ -159,17 +159,17 @@
     <text x="530.0" y="560" text-anchor="middle" fill="#9d9eb4" font-size="11.5">Online Query Serving Phase (Top-K=10)</text>
 
     <!-- Legend Subplot 2 (Dedicated Row) -->
-    <g transform="translate(310, 580)">
+    <g transform="translate(290, 580)">
       <line x1="0" y1="7" x2="22" y2="7" stroke="#f87171" stroke-width="2.5" stroke-dasharray="4,4" />
-      <text x="28" y="11" fill="#f8f8f2" font-size="11" font-weight="600">Single CPU Baseline</text>
+      <text x="28" y="11" fill="#f8f8f2" font-size="11" font-weight="600">8x Core CPU Baseline</text>
 
-      <line x1="165" y1="7" x2="187" y2="7" stroke="#38bdf8" stroke-width="3" />
-      <circle cx="176" cy="7" r="3.5" fill="#181824" stroke="#38bdf8" stroke-width="2" />
-      <text x="193" y="11" fill="#f8f8f2" font-size="11" font-weight="600">1x GPU (CUDA)</text>
+      <line x1="175" y1="7" x2="197" y2="7" stroke="#38bdf8" stroke-width="3" />
+      <circle cx="186" cy="7" r="3.5" fill="#181824" stroke="#38bdf8" stroke-width="2" />
+      <text x="203" y="11" fill="#f8f8f2" font-size="11" font-weight="600">1x GPU (CUDA)</text>
 
-      <line x1="305" y1="7" x2="327" y2="7" stroke="#34d399" stroke-width="3.5" />
-      <circle cx="316" cy="7" r="3.5" fill="#181824" stroke="#34d399" stroke-width="2" />
-      <text x="333" y="11" fill="#f8f8f2" font-size="11" font-weight="600">2x GPU (DDP)</text>
+      <line x1="320" y1="7" x2="342" y2="7" stroke="#34d399" stroke-width="3.5" />
+      <circle cx="331" cy="7" r="3.5" fill="#181824" stroke="#34d399" stroke-width="2" />
+      <text x="348" y="11" fill="#f8f8f2" font-size="11" font-weight="600">2x GPU (DDP)</text>
     </g>
 
     <!-- Subplot 2 Y-Axis Title (Rotated) -->
@@ -191,7 +191,7 @@
 
     <!-- Subplot 2 Single CPU Full-Width Baseline Reference Line -->
   <path d="M 110.0 847.1 L 960.0 847.1" fill="none" stroke="#f87171" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />
-  <text x="952.0" y="839.1" text-anchor="end" fill="#f87171" font-size="11" font-weight="bold">Single CPU Baseline (1,520 QPS)</text>
+  <text x="952.0" y="839.1" text-anchor="end" fill="#f87171" font-size="11" font-weight="bold">1,520 QPS</text>
 
     <!-- 1x GPU CUDA Line -->
     <path d="M 170.0 813.4 L 272.9 799.6 L 375.7 786.9 L 478.6 777.7 L 581.4 769.7 L 684.3 763.3 L 787.1 765.9 L 890.0 769.4" fill="none" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#cudaGlow)" />
@@ -251,10 +251,15 @@
   <circle cx="890.0" cy="694.5" r="8" fill="#34d399" opacity="0.22" />
   <circle cx="890.0" cy="694.5" r="4.5" fill="#181824" stroke="#34d399" stroke-width="2.5" />
 
+    <!-- Subplot 2 Peak QPS Callouts -->
+  <!-- Peak QPS Callouts (Subplot 2) -->
+  <text x="684.3" y="749.3" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="bold">45,152 QPS</text>
+  <text x="684.3" y="669.9" text-anchor="middle" fill="#34d399" font-size="11" font-weight="bold">86,500 QPS</text>
+
     <!-- Subplot 2 X-Axis Title -->
     <text x="530.0" y="895.0" text-anchor="middle" fill="#bd93f9" font-size="11.5" font-weight="600" letter-spacing="0.5px">Query Batch Size (Concurrent Vectors per GEMM Kernel)</text>
   </g>
 
   <!-- Global Footer -->
-  <text x="530.0" y="975" text-anchor="middle" fill="#6272a4" font-size="11.5">NVIDIA CUDA Multi-GPU Warp GEMM vs. Rayon Parallel CPU Baseline</text>
+  <text x="530.0" y="975" text-anchor="middle" fill="#6272a4" font-size="11.5">NVIDIA CUDA Multi-GPU Warp GEMM vs. Rayon Parallel 8x Core CPU Baseline</text>
 </svg>
