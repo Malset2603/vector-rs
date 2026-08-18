@@ -1,0 +1,27 @@
+[package]
+name = "vector-mpi"
+description = "MPI-based distributed k-Means index trainer for VectorRS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+mpi = ["dep:mpi"]
+cuda = ["dep:vector-cuda"]
+
+[dependencies]
+vector-index = { path = "../vector-index" }
+vector-simd = { path = "../vector-simd" }
+vector-cuda = { path = "../vector-cuda", optional = true }
+mpi = { version = "0.7", optional = true }
+clap.workspace = true
+rayon.workspace = true
+rand.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[[bin]]
+name = "mpi_kmeans"
+path = "src/bin/mpi_kmeans.rs"
+

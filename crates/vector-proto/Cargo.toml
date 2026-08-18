@@ -1,0 +1,13 @@
+[package]
+name = "vector-proto"
+description = "gRPC Protocol Buffers bindings and client/server stubs for VectorRS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+prost.workspace = true
+tonic.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true

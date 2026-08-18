@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package vector_proto;
+
+// Distance or similarity metric to evaluate vector proximity.
+enum DistanceMetric {
+  DISTANCE_METRIC_UNSPECIFIED = 0;
+  DISTANCE_METRIC_L2_SQUARED = 1;
+  DISTANCE_METRIC_DOT_PRODUCT = 2;
+  DISTANCE_METRIC_COSINE_SIMILARITY = 3;
+  DISTANCE_METRIC_MANHATTAN = 4;
+  DISTANCE_METRIC_MINKOWSKI = 5;
+  DISTANCE_METRIC_CHEBYSHEV = 6;
+  DISTANCE_METRIC_HAMMING = 7;
+  DISTANCE_METRIC_MAHALANOBIS = 8;
+  DISTANCE_METRIC_JACCARD = 9;
+  DISTANCE_METRIC_HELLINGER = 10;
+}
+
+// Single nearest neighbor search result item.
+message SearchResultItem {
+  // Local vector identifier within the shard.
+  uint32 id = 1;
+  // Computed distance or similarity score.
+  float distance = 2;
+  // Shard identifier that originated this match.
+  uint32 shard_id = 3;
+}
+
+// Request sent to a worker node to perform local ANN search.
+message SearchRequest {
+  // Query vector values.
+  repeated float query_vector = 1;
+  // Number of top nearest neighbors requested.
+  uint32 k = 2;
+  // Dynamic candidate list size during graph exploration (ef_search).
+  uint32 ef_search = 3;
+  // Distance metric to use for ranking.
+  DistanceMetric metric = 4;
+  // Target shard ID (optional validation).
+  uint32 shard_id = 5;
+}
+
+// Response returned by a worker node.
+message SearchResponse {
+  // Top-K results computed by the worker.
+  repeated SearchResultItem results = 1;
+  // Shard ID that processed the query.
+  uint32 shard_id = 2;
+  // Local execution latency in microseconds.
+  uint64 query_latency_micros = 3;
+}
+
+// Health check ping request.
+message PingRequest {
+  string client_id = 1;
+}
+
+// Health check ping response.
+message PingResponse {
+  string worker_id = 1;
+  uint32 shard_id = 2;
+  uint64 num_vectors = 3;
+  uint32 dimension = 4;
+  bool ready = 5;
+}
+
+// Shard statistics request.
+message StatsRequest {
+  uint32 shard_id = 1;
+}
+
+// Shard statistics response.
+message StatsResponse {
+  uint32 shard_id = 1;
+  uint64 num_vectors = 2;
+  uint32 dimension = 3;
+  string index_type = 4;
+}
+
+// Cluster-wide search request sent from client to Coordinator.
+message ClusterSearchRequest {
+  repeated float query_vector = 1;
+  uint32 k = 2;
+  uint32 ef_search = 3;
+  DistanceMetric metric = 4;
+}
+
+// Cluster-wide aggregated search response returned by Coordinator.
+message ClusterSearchResponse {
+  repeated SearchResultItem results = 1;
+  uint32 total_queried_shards = 2;
+  uint32 successful_shards = 3;
+  uint64 query_latency_micros = 4;
+}
+
+// Service implemented by Worker Nodes.
+service VectorWorkerService {
+  rpc Search (SearchRequest) returns (SearchResponse);
+  rpc Ping (PingRequest) returns (PingResponse);
+  rpc GetStats (StatsRequest) returns (StatsResponse);
+}
+
+// Service implemented by Coordinator Node.
+service VectorCoordinatorService {
+  rpc SearchCluster (ClusterSearchRequest) returns (ClusterSearchResponse);
+}

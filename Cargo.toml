@@ -1,0 +1,41 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vector-simd",
+    "crates/vector-index",
+    "crates/vector-proto",
+    "crates/vector-worker",
+    "crates/vector-coordinator",
+    "crates/vector-cuda",
+    "crates/vector-mpi",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/user/vector-rs"
+
+[workspace.dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+memmap2 = "0.9"
+bytemuck = { version = "1", features = ["derive"] }
+rayon = "1.10"
+thiserror = "2"
+tempfile = "3"
+rand = "0.8"
+parking_lot = "0.12"
+tokio = { version = "1", features = ["full"] }
+tonic = "0.12"
+prost = "0.13"
+tonic-build = "0.12"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+mpi = "0.7"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"

@@ -1,0 +1,23 @@
+[package]
+name = "vector-cuda"
+description = "GPU CUDA accelerated exact KNN vector search and k-Means clustering"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+vector-simd = { path = "../vector-simd" }
+vector-index = { path = "../vector-index" }
+rayon.workspace = true
+thiserror.workspace = true
+rand.workspace = true
+cudarc = { version = "0.11", default-features = false, features = ["std", "driver", "cuda-12050"] }
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+rand.workspace = true
+
+[[bench]]
+name = "cuda_bench"
+harness = false

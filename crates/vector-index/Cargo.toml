@@ -1,0 +1,29 @@
+[package]
+name = "vector-index"
+description = "Memory layout, storage backends, and brute-force vector search engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+vector-simd = { path = "../vector-simd" }
+memmap2.workspace = true
+bytemuck.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+rand.workspace = true
+
+[[bench]]
+name = "hnsw_bench"
+harness = false
+
+[[bench]]
+name = "ivf_bench"
+harness = false
+

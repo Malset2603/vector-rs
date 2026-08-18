@@ -1,0 +1,23 @@
+[package]
+name = "vector-worker"
+description = "High-performance distributed vector search worker node server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+vector-proto = { path = "../vector-proto" }
+vector-index = { path = "../vector-index" }
+vector-simd = { path = "../vector-simd" }
+vector-cuda = { path = "../vector-cuda" }
+tokio.workspace = true
+tonic.workspace = true
+prost.workspace = true
+clap.workspace = true
+thiserror.workspace = true
+parking_lot.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
