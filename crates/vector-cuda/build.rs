@@ -6,38 +6,70 @@ use std::process::Command;
 fn find_nvcc() -> Option<String> {
     let exe_name = if cfg!(windows) { "nvcc.exe" } else { "nvcc" };
     
+    // Check PATH environment variable
     if let Ok(path) = env::var("PATH") {
         for dir in env::split_paths(&path) {
-            if dir.join(exe_name).exists() {
-                return Some(exe_name.to_string());
+            let candidate = dir.join(exe_name);
+            if candidate.exists() {
+                return Some(candidate.to_string_lossy().to_string());
             }
         }
     }
 
-    if cfg!(target_os = "linux") {
-        if Path::new("/usr/local/cuda/bin/nvcc").exists() {
-            return Some("/usr/local/cuda/bin/nvcc".to_string());
-        }
-    } else if cfg!(windows) {
-        if let Ok(cuda_path) = env::var("CUDA_PATH") {
-            let p = PathBuf::from(cuda_path).join("bin").join("nvcc.exe");
-            if p.exists() {
-                return Some(p.to_string_lossy().to_string());
-            }
-        }
-        let candidates = [
-            r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\nvcc.exe",
-            r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin\nvcc.exe",
-            r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.5\bin\nvcc.exe",
-            r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin\nvcc.exe",
-            r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\bin\nvcc.exe",
-        ];
-        for c in candidates {
-            if Path::new(c).exists() {
-                return Some(c.to_string());
-            }
+    // Check CUDA_HOME
+    if let Ok(cuda_home) = env::var("CUDA_HOME") {
+        let p = PathBuf::from(cuda_home).join("bin").join(exe_name);
+        if p.exists() {
+            return Some(p.to_string_lossy().to_string());
         }
     }
+
+    // Check CUDA_PATH
+    if let Ok(cuda_path) = env::var("CUDA_PATH") {
+        let p = PathBuf::from(cuda_path).join("bin").join(exe_name);
+        if p.exists() {
+            return Some(p.to_string_lossy().to_string());
+        }
+    }
+
+    // Common Linux CUDA installation locations
+    let linux_candidates = [
+        "/usr/local/cuda/bin/nvcc",
+        "/usr/local/cuda-12/bin/nvcc",
+        "/usr/local/cuda-12.6/bin/nvcc",
+        "/usr/local/cuda-12.5/bin/nvcc",
+        "/usr/local/cuda-12.4/bin/nvcc",
+        "/usr/local/cuda-12.3/bin/nvcc",
+        "/usr/local/cuda-12.2/bin/nvcc",
+        "/usr/local/cuda-12.1/bin/nvcc",
+        "/usr/local/cuda-12.0/bin/nvcc",
+        "/usr/local/cuda-11.8/bin/nvcc",
+        "/usr/local/cuda-11.7/bin/nvcc",
+        "/usr/local/cuda-11/bin/nvcc",
+        "/usr/bin/nvcc",
+        "/opt/conda/bin/nvcc",
+        "/usr/local/nvidia/bin/nvcc",
+    ];
+    for c in linux_candidates {
+        if Path::new(c).exists() {
+            return Some(c.to_string());
+        }
+    }
+
+    // Common Windows CUDA installation locations
+    let windows_candidates = [
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\nvcc.exe",
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin\nvcc.exe",
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.5\bin\nvcc.exe",
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin\nvcc.exe",
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\bin\nvcc.exe",
+    ];
+    for c in windows_candidates {
+        if Path::new(c).exists() {
+            return Some(c.to_string());
+        }
+    }
+
     None
 }
 
