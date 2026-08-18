@@ -101,7 +101,9 @@ fn main() {
     let msvc = find_msvc_bindir();
 
     let compile_kernel = |cu_file: &str, ptx_name: &str| {
-        let cu_path = format!("src/kernels/{}", cu_file);
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+        let manifest_path = Path::new(&manifest_dir);
+        let cu_path = manifest_path.join("src").join("kernels").join(cu_file);
         let dst_ptx = out_path.join(ptx_name);
 
         if let Some(nvcc_bin) = &nvcc {
@@ -120,24 +122,29 @@ fn main() {
                 .status();
 
             if let Ok(s) = status {
-                if s.success() {
+                if s.success() && dst_ptx.exists() {
                     return;
                 }
             }
         }
 
         // Fallback to pre-built ptx if compilation was not performed or failed
-        let fallback_ptx = format!("src/kernels/{}", ptx_name);
-        if Path::new(&fallback_ptx).exists() {
+        let fallback_ptx = manifest_path.join("src").join("kernels").join(ptx_name);
+        if fallback_ptx.exists() {
             let _ = fs::copy(&fallback_ptx, &dst_ptx);
-        } else {
-            // Force panic so the user knows exactly what went wrong if fallback fails
-            if nvcc.is_none() {
-                panic!("Failed to find nvcc! Please install CUDA Toolkit and ensure nvcc is in PATH.");
-            } else {
-                panic!("nvcc failed to compile {}! Check your CUDA installation.", cu_file);
-            }
+            return;
         }
+
+        let fallback_rel = format!("src/kernels/{}", ptx_name);
+        if Path::new(&fallback_rel).exists() {
+            let _ = fs::copy(&fallback_rel, &dst_ptx);
+            return;
+        }
+
+        panic!(
+            "Failed to compile or find {} PTX file! Ensure pre-built PTX files exist in crates/vector-cuda/src/kernels/ or install CUDA Toolkit (nvcc).",
+            cu_file
+        );
     };
 
     compile_kernel("kmeans.cu", "kmeans.ptx");

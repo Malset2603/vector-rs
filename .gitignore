@@ -41,6 +41,7 @@ Cargo.lock
 # ==============================================================================
 *.cubin
 *.ptx
+!crates/vector-cuda/src/kernels/*.ptx
 *.fatbin
 *.cudafe1.*
 *.cudafe2.*
