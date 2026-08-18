@@ -218,9 +218,9 @@ def run_worker_benchmarks(
         "cargo",
         "build",
         "--release",
-        "-p",
+        "--bin",
         "vector-coordinator",
-        "-p",
+        "--bin",
         "vector-worker",
         "--bin",
         "client",
@@ -247,6 +247,21 @@ def benchmark_cluster_live(
     worker_bin = workspace_root / "target" / "release" / f"vector-worker{exe_suffix}"
     coord_bin = workspace_root / "target" / "release" / f"vector-coordinator{exe_suffix}"
     client_bin = workspace_root / "target" / "release" / f"client{exe_suffix}"
+
+    if not worker_bin.exists() or not coord_bin.exists() or not client_bin.exists():
+        print("  -> Compiling missing release binaries for cluster benchmark...")
+        cmd = [
+            "cargo",
+            "build",
+            "--release",
+            "--bin",
+            "vector-coordinator",
+            "--bin",
+            "vector-worker",
+            "--bin",
+            "client",
+        ]
+        subprocess.run(cmd, cwd=workspace_root, check=True)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         temp_path = Path(tmp_dir)
