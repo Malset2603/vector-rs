@@ -122,13 +122,13 @@ impl DistributedKnnEngine {
                         &[]
                     };
 
-                    rank_engines.push(CudaKnnEngine::new(slice, dimension, metric));
+                    rank_engines.push(CudaKnnEngine::with_ordinal(slice, dimension, metric, r));
                     rank_offsets.push(start_v);
                 }
             }
             GpuShardMode::Replicated => {
-                for _ in 0..g {
-                    rank_engines.push(CudaKnnEngine::new(dataset, dimension, metric));
+                for r in 0..g {
+                    rank_engines.push(CudaKnnEngine::with_ordinal(dataset, dimension, metric, r));
                     rank_offsets.push(0);
                 }
             }

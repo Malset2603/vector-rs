@@ -37,13 +37,21 @@ VectorRS is an end-to-end distributed Approximate Nearest Neighbor (ANN) search 
 * **NVIDIA CUDA Toolkit**: 12.x+ (Optional, for GPU acceleration).
 * **MPI SDK**: OpenMPI / MS-MPI (Optional, for distributed training).
 
-### 2. Generate Synthetic Dataset
+### 2. Manual CUDA PTX Compilation (Optional, for Cloud/Headless Environments)
+If your execution environment fails to compile `.cu` files automatically during `cargo build` because it cannot locate `nvcc`, you should manually compile them first. This ensures the environment uses the compiled `.ptx` files with maximum hardware optimization. Run the following commands:
+
+```bash
+nvcc --ptx -O3 --use_fast_math --extra-device-vectorization crates/vector-cuda/src/kernels/kmeans.cu -o crates/vector-cuda/src/kernels/kmeans.ptx
+nvcc --ptx -O3 --use_fast_math --extra-device-vectorization crates/vector-cuda/src/kernels/knn.cu -o crates/vector-cuda/src/kernels/knn.ptx
+```
+
+### 3. Generate Synthetic Dataset
 Generate a random dataset of 10,000 vectors (128-dimensional) split into 3 shards:
 ```bash
 python scripts/generate_dataset.py -n 10000 -d 128 -s 3 -o data
 ```
 
-### 3. Spin Up the Cluster
+### 4. Spin Up the Cluster
 Run the distributed cluster using the provided scripts (automatically spawning 1 Coordinator and 3 Workers).
 
 **Windows (PowerShell):**
@@ -56,7 +64,7 @@ Run the distributed cluster using the provided scripts (automatically spawning 1
 ./scripts/run_cluster.sh hnsw 128 cosine data
 ```
 
-### 4. Execute a Vector Search Query
+### 5. Execute a Vector Search Query
 You can query the cluster using our Python client:
 ```bash
 python scripts/query_cluster.py --metric cosine --dimension 128 --k 5

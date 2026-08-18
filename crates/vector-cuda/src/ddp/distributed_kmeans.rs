@@ -75,7 +75,271 @@ impl DistributedKMeansEngine {
         let effective_k = k.min(n);
         let g = self.num_gpus.min(n);
 
-        // 1. Shard dataset across G GPU device buffers
+        // Hardware Multi-GPU DDP Execution if physical devices are available
+        let available_devices = CudaDeviceContext::device_count();
+        if available_devices >= g && g > 1 {
+            let mut valid_devices = Vec::with_capacity(g);
+            for ordinal in 0..g {
+                let ctx = CudaDeviceContext::with_ordinal(ordinal);
+                if let Some(dev) = ctx.cuda_device() {
+                    valid_devices.push(dev.clone());
+                }
+            }
+
+            if valid_devices.len() == g
+                && let Ok(res) = self.fit_gpu_ddp(
+                    &valid_devices,
+                    data,
+                    dimension,
+                    effective_k,
+                    max_iters,
+                    tolerance,
+                    metric,
+                )
+            {
+                return res;
+            }
+        }
+
+        // Software CPU SIMD/Rayon Fallback & Simulation
+        self.fit_cpu(data, dimension, effective_k, g, max_iters, tolerance, metric)
+    }
+
+    fn fit_gpu_ddp(
+        &self,
+        devices: &[std::sync::Arc<cudarc::driver::CudaDevice>],
+        data: &[f32],
+        dimension: usize,
+        effective_k: usize,
+        max_iters: usize,
+        tolerance: f32,
+        metric: DistanceMetric,
+    ) -> Result<CudaKMeansResult, Box<dyn std::error::Error + Send + Sync>> {
+        use cudarc::driver::{LaunchAsync, LaunchConfig};
+
+        struct RankGpuContext {
+            dev: std::sync::Arc<cudarc::driver::CudaDevice>,
+            v_count: usize,
+            d_data: cudarc::driver::CudaSlice<f32>,
+            d_centroids: cudarc::driver::CudaSlice<f32>,
+            d_assignments: cudarc::driver::CudaSlice<i32>,
+            d_cluster_sums: cudarc::driver::CudaSlice<f32>,
+            d_cluster_counts: cudarc::driver::CudaSlice<i32>,
+            d_inertias: cudarc::driver::CudaSlice<f32>,
+        }
+
+        let n = data.len() / dimension;
+        let g = devices.len().min(n);
+
+        let mut centroids = Self::init_random(data, dimension, n, effective_k);
+
+        // 1. Shard dataset and upload shard to each GPU rank
+        let chunk_size = n.div_ceil(g);
+        let mut rank_contexts = Vec::with_capacity(g);
+
+        for (r, dev) in devices.iter().enumerate().take(g) {
+            let start_v = r * chunk_size;
+            let end_v = (start_v + chunk_size).min(n);
+            let count = if start_v < n { end_v - start_v } else { 0 };
+
+            let start_idx = start_v * dimension;
+            let end_idx = end_v * dimension;
+            let slice = if count > 0 {
+                &data[start_idx..end_idx]
+            } else {
+                &[]
+            };
+
+            let d_data = dev.htod_copy(slice.to_vec())?;
+            let d_centroids = dev.htod_copy(centroids.clone())?;
+            let d_assignments = dev.alloc_zeros::<i32>(count.max(1))?;
+            let d_cluster_sums = dev.alloc_zeros::<f32>(effective_k * dimension)?;
+            let d_cluster_counts = dev.alloc_zeros::<i32>(effective_k)?;
+            let d_inertias = dev.alloc_zeros::<f32>(count.max(1))?;
+
+            rank_contexts.push(RankGpuContext {
+                dev: dev.clone(),
+                v_count: count,
+                d_data,
+                d_centroids,
+                d_assignments,
+                d_cluster_sums,
+                d_cluster_counts,
+                d_inertias,
+            });
+        }
+
+        let block_dim = 256;
+        let metric_code: i32 = match metric {
+            DistanceMetric::L2Squared => 0,
+            DistanceMetric::DotProduct => 1,
+            DistanceMetric::CosineSimilarity => 2,
+            DistanceMetric::Manhattan => 3,
+            DistanceMetric::Minkowski => 4,
+            DistanceMetric::Chebyshev => 5,
+            DistanceMetric::Hamming => 6,
+            DistanceMetric::Mahalanobis => 7,
+            DistanceMetric::Jaccard => 8,
+            DistanceMetric::Hellinger => 9,
+        };
+
+        let mut iterations = 0;
+        let mut rng = rand::thread_rng();
+
+        for iter in 0..max_iters {
+            iterations = iter + 1;
+
+            // 2. Broadcast updated centroids to all GPUs if iter > 0
+            if iter > 0 {
+                for ctx in rank_contexts.iter_mut() {
+                    ctx.dev.htod_sync_copy_into(&centroids, &mut ctx.d_centroids)?;
+                }
+            }
+
+            // 3. Launch parallel local assignment & accumulation on all G GPUs concurrently
+            let rank_results: Vec<Result<(Vec<f32>, Vec<i32>), Box<dyn std::error::Error + Send + Sync>>> = rank_contexts
+                .par_iter_mut()
+                .map(|ctx| {
+                    let v_count = ctx.v_count;
+                    if v_count == 0 {
+                        return Ok((vec![0.0f32; effective_k * dimension], vec![0i32; effective_k]));
+                    }
+
+                    let assign_func = ctx.dev
+                        .get_func("kmeans_module", "kmeans_assign_and_accumulate")
+                        .ok_or("kmeans_assign_and_accumulate not found")?;
+                    let zero_func = ctx.dev
+                        .get_func("kmeans_module", "kmeans_zero_accumulators")
+                        .ok_or("kmeans_zero_accumulators not found")?;
+
+                    let grid_dim_assign = v_count.div_ceil(block_dim) as u32;
+                    let cfg_assign = LaunchConfig {
+                        grid_dim: (grid_dim_assign.max(1), 1, 1),
+                        block_dim: (block_dim as u32, 1, 1),
+                        shared_mem_bytes: 0,
+                    };
+
+                    let grid_dim_zero = (effective_k * dimension).div_ceil(block_dim) as u32;
+                    let cfg_zero = LaunchConfig {
+                        grid_dim: (grid_dim_zero.max(1), 1, 1),
+                        block_dim: (block_dim as u32, 1, 1),
+                        shared_mem_bytes: 0,
+                    };
+
+                    unsafe {
+                        zero_func.clone().launch(
+                            cfg_zero,
+                            (
+                                &mut ctx.d_cluster_sums,
+                                &mut ctx.d_cluster_counts,
+                                effective_k as i32,
+                                dimension as i32,
+                            ),
+                        )?;
+
+                        assign_func.clone().launch(
+                            cfg_assign,
+                            (
+                                &ctx.d_data,
+                                &ctx.d_centroids,
+                                &mut ctx.d_assignments,
+                                &mut ctx.d_cluster_sums,
+                                &mut ctx.d_cluster_counts,
+                                &mut ctx.d_inertias,
+                                v_count as i32,
+                                effective_k as i32,
+                                dimension as i32,
+                                metric_code,
+                            ),
+                        )?;
+                    }
+
+                    let local_sums = ctx.dev.dtoh_sync_copy(&ctx.d_cluster_sums)?;
+                    let local_counts = ctx.dev.dtoh_sync_copy(&ctx.d_cluster_counts)?;
+
+                    Ok((local_sums, local_counts))
+                })
+                .collect();
+
+            // 4. Collective AllReduce across GPU ranks
+            let mut global_sums = vec![0.0f32; effective_k * dimension];
+            let mut global_counts = vec![0i32; effective_k];
+
+            for res in rank_results {
+                let (sums, counts) = res?;
+                for idx in 0..(effective_k * dimension) {
+                    global_sums[idx] += sums[idx];
+                }
+                for k_idx in 0..effective_k {
+                    global_counts[k_idx] += counts[k_idx];
+                }
+            }
+
+            // 5. Update Centroids on Host and calculate max shift
+            let mut max_shift = 0.0f32;
+            let mut new_centroids = vec![0.0f32; effective_k * dimension];
+
+            for (k_idx, &count) in global_counts.iter().enumerate().take(effective_k) {
+                let start = k_idx * dimension;
+
+                if count > 0 {
+                    let inv_count = 1.0 / (count as f32);
+                    let mut shift = 0.0f32;
+
+                    for d in 0..dimension {
+                        let val = global_sums[start + d] * inv_count;
+                        let diff = val - centroids[start + d];
+                        shift += diff * diff;
+                        new_centroids[start + d] = val;
+                    }
+
+                    if shift > max_shift {
+                        max_shift = shift;
+                    }
+                } else {
+                    let random_idx = rng.gen_range(0..n);
+                    let sample_start = random_idx * dimension;
+                    new_centroids[start..start + dimension]
+                        .copy_from_slice(&data[sample_start..sample_start + dimension]);
+                }
+            }
+
+            centroids = new_centroids;
+
+            if max_shift <= tolerance {
+                break;
+            }
+        }
+
+        // 6. Aggregate inertia across all GPUs
+        let mut total_inertia = 0.0f32;
+        for ctx in &rank_contexts {
+            if ctx.v_count > 0 {
+                let rank_inertias = ctx.dev.dtoh_sync_copy(&ctx.d_inertias)?;
+                total_inertia += rank_inertias.iter().take(ctx.v_count).sum::<f32>();
+            }
+        }
+
+        Ok(CudaKMeansResult {
+            centroids,
+            dimension,
+            k: effective_k,
+            iterations,
+            inertia: total_inertia,
+        })
+    }
+
+    fn fit_cpu(
+        &self,
+        data: &[f32],
+        dimension: usize,
+        effective_k: usize,
+        g: usize,
+        max_iters: usize,
+        tolerance: f32,
+        metric: DistanceMetric,
+    ) -> CudaKMeansResult {
+        let n = data.len() / dimension;
         let chunk_size = n.div_ceil(g);
         let mut rank_data_buffers = Vec::with_capacity(g);
         let mut rank_vector_counts = Vec::with_capacity(g);
@@ -97,7 +361,6 @@ impl DistributedKMeansEngine {
             rank_vector_counts.push(count);
         }
 
-        // 2. Initial random centroid selection on Rank 0
         let mut centroids = Self::init_random(data, dimension, n, effective_k);
         let mut rank_centroid_buffers: Vec<DeviceBuffer<f32>> = (0..g)
             .map(|_| DeviceBuffer::from_host(&centroids))
@@ -110,10 +373,8 @@ impl DistributedKMeansEngine {
         for iter in 0..max_iters {
             iterations = iter + 1;
 
-            // 3. Broadcast updated centroids from Rank 0 to all G GPU ranks
             CollectiveOps::broadcast(0, &mut rank_centroid_buffers);
 
-            // 4. Parallel local assignment & accumulation across all G GPUs
             let rank_results: Vec<(Vec<usize>, Vec<f32>, f32)> = (0..g)
                 .into_par_iter()
                 .map(|r| {
@@ -161,11 +422,9 @@ impl DistributedKMeansEngine {
 
             final_inertia = total_iter_inertia;
 
-            // 5. NCCL-style AllReduce across all GPU rank sum and count buffers
             CollectiveOps::all_reduce_sum_f32(&mut rank_sum_buffers);
             CollectiveOps::all_reduce_sum_usize(&mut rank_count_buffers);
 
-            // 6. Update Centroids on Rank 0
             let global_sums = rank_sum_buffers[0].as_slice();
             let global_counts = rank_count_buffers[0].as_slice();
             let mut max_shift = 0.0f32;

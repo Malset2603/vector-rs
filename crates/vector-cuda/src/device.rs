@@ -143,7 +143,11 @@ impl CudaDeviceContext {
                 let _ = dev.load_ptx(
                     KMEANS_PTX.into(),
                     "kmeans_module",
-                    &["kmeans_assign_and_accumulate"],
+                    &[
+                        "kmeans_assign_and_accumulate",
+                        "kmeans_update_centroids",
+                        "kmeans_zero_accumulators",
+                    ],
                 );
                 let _ = dev.load_ptx(
                     KNN_PTX.into(),
@@ -196,7 +200,11 @@ impl CudaDeviceContext {
                 let _ = dev.load_ptx(
                     KMEANS_PTX.into(),
                     "kmeans_module",
-                    &["kmeans_assign_and_accumulate"],
+                    &[
+                        "kmeans_assign_and_accumulate",
+                        "kmeans_update_centroids",
+                        "kmeans_zero_accumulators",
+                    ],
                 );
                 let _ = dev.load_ptx(
                     KNN_PTX.into(),

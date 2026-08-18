@@ -115,7 +115,11 @@ fn main() {
                 }
             }
 
-            let status = cmd.arg("--ptx")
+            let status = cmd
+                .arg("--ptx")
+                .arg("-O3")
+                .arg("--use_fast_math")
+                .arg("--extra-device-vectorization")
                 .arg(&cu_path)
                 .arg("-o")
                 .arg(&dst_ptx)

@@ -43,22 +43,59 @@ impl Ord for Candidate {
 }
 
 /// CUDA-accelerated exact Nearest Neighbor search engine.
-#[derive(Debug)]
 pub struct CudaKnnEngine {
     context: CudaDeviceContext,
     dataset: DeviceBuffer<f32>,
     data_norms: DeviceBuffer<f32>,
+    d_dataset: Option<std::sync::Arc<cudarc::driver::CudaSlice<f32>>>,
+    d_data_norms: Option<std::sync::Arc<cudarc::driver::CudaSlice<f32>>>,
     dimension: usize,
     num_vectors: usize,
     metric: DistanceMetric,
 }
 
+impl std::fmt::Debug for CudaKnnEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CudaKnnEngine")
+            .field("context", &self.context)
+            .field("dimension", &self.dimension)
+            .field("num_vectors", &self.num_vectors)
+            .field("metric", &self.metric)
+            .finish()
+    }
+}
+
+impl Clone for CudaKnnEngine {
+    fn clone(&self) -> Self {
+        Self {
+            context: self.context.clone(),
+            dataset: self.dataset.clone(),
+            data_norms: self.data_norms.clone(),
+            d_dataset: self.d_dataset.clone(),
+            d_data_norms: self.d_data_norms.clone(),
+            dimension: self.dimension,
+            num_vectors: self.num_vectors,
+            metric: self.metric,
+        }
+    }
+}
+
 impl CudaKnnEngine {
-    /// Uploads a dataset to GPU device memory and initializes the KNN engine.
+    /// Uploads a dataset to GPU device memory and initializes the KNN engine on GPU ordinal 0.
     pub fn new(dataset: &[f32], dimension: usize, metric: DistanceMetric) -> Self {
+        Self::with_ordinal(dataset, dimension, metric, 0)
+    }
+
+    /// Uploads a dataset to GPU device memory and initializes the KNN engine on a specific GPU ordinal.
+    pub fn with_ordinal(
+        dataset: &[f32],
+        dimension: usize,
+        metric: DistanceMetric,
+        ordinal: usize,
+    ) -> Self {
         assert_eq!(dataset.len() % dimension, 0);
         let num_vectors = dataset.len() / dimension;
-        let context = CudaDeviceContext::new();
+        let context = CudaDeviceContext::with_ordinal(ordinal);
 
         // Precompute squared L2 norms for fast GEMM distance: ||x||^2 = sum(x_i^2)
         let engine = DistanceEngine::auto();
@@ -74,10 +111,21 @@ impl CudaKnnEngine {
         let d_dataset = DeviceBuffer::from_host(dataset);
         let d_norms = DeviceBuffer::from_host(&data_norms);
 
+        // Pre-allocate and upload dataset into GPU VRAM once if device is available
+        let (gpu_dataset, gpu_norms) = if let Some(dev) = context.cuda_device() {
+            let d_d = dev.htod_copy(dataset.to_vec()).ok().map(std::sync::Arc::new);
+            let d_n = dev.htod_copy(data_norms.clone()).ok().map(std::sync::Arc::new);
+            (d_d, d_n)
+        } else {
+            (None, None)
+        };
+
         Self {
             context,
             dataset: d_dataset,
             data_norms: d_norms,
+            d_dataset: gpu_dataset,
+            d_data_norms: gpu_norms,
             dimension,
             num_vectors,
             metric,
@@ -136,10 +184,19 @@ impl CudaKnnEngine {
             .collect();
 
         let d_queries = dev.htod_copy(queries.to_vec())?;
-        let d_dataset = dev.htod_copy(self.dataset.as_slice().to_vec())?;
         let d_query_norms = dev.htod_copy(query_norms)?;
-        let d_data_norms = dev.htod_copy(self.data_norms.as_slice().to_vec())?;
         let mut d_dist_matrix = dev.alloc_zeros::<f32>(q_count * self.num_vectors)?;
+
+        // Reuse persistent VRAM allocations or fallback to on-demand upload
+        let (d_dataset_temp, d_data_norms_temp);
+        let (d_dataset_ref, d_data_norms_ref) = match (&self.d_dataset, &self.d_data_norms) {
+            (Some(d), Some(n)) => (d.as_ref(), n.as_ref()),
+            _ => {
+                d_dataset_temp = dev.htod_copy(self.dataset.as_slice().to_vec())?;
+                d_data_norms_temp = dev.htod_copy(self.data_norms.as_slice().to_vec())?;
+                (&d_dataset_temp, &d_data_norms_temp)
+            }
+        };
 
         let func = dev
             .get_func("knn_module", "knn_compute_distance_matrix")
@@ -176,9 +233,9 @@ impl CudaKnnEngine {
                 cfg,
                 (
                     &d_queries,
-                    &d_dataset,
+                    d_dataset_ref,
                     &d_query_norms,
-                    &d_data_norms,
+                    d_data_norms_ref,
                     &mut d_dist_matrix,
                     q_count as i32,
                     self.num_vectors as i32,

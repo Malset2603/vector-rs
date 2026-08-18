@@ -108,22 +108,43 @@ impl CudaKMeansEngine {
         use cudarc::driver::{LaunchAsync, LaunchConfig};
 
         let n = data.len() / dimension;
-        let mut centroids = Self::init_random(data, dimension, n, k);
+        let centroids = Self::init_random(data, dimension, n, k);
 
         let d_data = dev.htod_copy(data.to_vec())?;
-        let mut d_centroids = dev.htod_copy(centroids.clone())?;
+        let mut d_centroids = dev.htod_copy(centroids)?;
         let mut d_assignments = dev.alloc_zeros::<i32>(n)?;
         let mut d_cluster_sums = dev.alloc_zeros::<f32>(k * dimension)?;
         let mut d_cluster_counts = dev.alloc_zeros::<i32>(k)?;
+        let mut d_inertias = dev.alloc_zeros::<f32>(n)?;
+        let mut d_shifts = dev.alloc_zeros::<f32>(k)?;
 
-        let func = dev
+        let assign_func = dev
             .get_func("kmeans_module", "kmeans_assign_and_accumulate")
             .ok_or("kmeans_assign_and_accumulate not found")?;
+        let zero_func = dev
+            .get_func("kmeans_module", "kmeans_zero_accumulators")
+            .ok_or("kmeans_zero_accumulators not found")?;
+        let update_func = dev
+            .get_func("kmeans_module", "kmeans_update_centroids")
+            .ok_or("kmeans_update_centroids not found")?;
 
         let block_dim = 256;
-        let grid_dim = n.div_ceil(block_dim) as u32;
-        let cfg = LaunchConfig {
-            grid_dim: (grid_dim, 1, 1),
+        let grid_dim_assign = n.div_ceil(block_dim) as u32;
+        let cfg_assign = LaunchConfig {
+            grid_dim: (grid_dim_assign.max(1), 1, 1),
+            block_dim: (block_dim as u32, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        let grid_dim_zero = (k * dimension).div_ceil(block_dim) as u32;
+        let cfg_zero = LaunchConfig {
+            grid_dim: (grid_dim_zero.max(1), 1, 1),
+            block_dim: (block_dim as u32, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        let cfg_update = LaunchConfig {
+            grid_dim: (k as u32, 1, 1),
             block_dim: (block_dim as u32, 1, 1),
             shared_mem_bytes: 0,
         };
@@ -142,27 +163,34 @@ impl CudaKMeansEngine {
         };
 
         let mut iterations = 0;
-        let mut rng = rand::thread_rng();
-
-        let zero_sums = vec![0.0f32; k * dimension];
-        let zero_counts = vec![0i32; k];
 
         for iter in 0..max_iters {
             iterations = iter + 1;
 
-            // Fast zero out accumulators on GPU
-            dev.htod_sync_copy_into(&zero_sums, &mut d_cluster_sums)?;
-            dev.htod_sync_copy_into(&zero_counts, &mut d_cluster_counts)?;
-
+            // 1. Fast zero-out accumulator buffers on GPU (zero PCIe overhead)
             unsafe {
-                func.clone().launch(
-                    cfg,
+                zero_func.clone().launch(
+                    cfg_zero,
+                    (
+                        &mut d_cluster_sums,
+                        &mut d_cluster_counts,
+                        k as i32,
+                        dimension as i32,
+                    ),
+                )?;
+            }
+
+            // 2. Parallel assignment, vector inertia accumulation, and cluster sums
+            unsafe {
+                assign_func.clone().launch(
+                    cfg_assign,
                     (
                         &d_data,
                         &d_centroids,
                         &mut d_assignments,
                         &mut d_cluster_sums,
                         &mut d_cluster_counts,
+                        &mut d_inertias,
                         n as i32,
                         k as i32,
                         dimension as i32,
@@ -171,58 +199,36 @@ impl CudaKMeansEngine {
                 )?;
             }
 
-            let cluster_sums = dev.dtoh_sync_copy(&d_cluster_sums)?;
-            let cluster_counts = dev.dtoh_sync_copy(&d_cluster_counts)?;
-
-            let mut new_centroids = vec![0.0f32; k * dimension];
-            let mut max_shift = 0.0f32;
-
-            for (k_idx, &count) in cluster_counts.iter().enumerate().take(k) {
-                let start = k_idx * dimension;
-
-                if count > 0 {
-                    let inv_count = 1.0 / (count as f32);
-                    let mut shift = 0.0f32;
-
-                    for d in 0..dimension {
-                        let val = cluster_sums[start + d] * inv_count;
-                        let diff = val - centroids[start + d];
-                        shift += diff * diff;
-                        new_centroids[start + d] = val;
-                    }
-
-                    if shift > max_shift {
-                        max_shift = shift;
-                    }
-                } else {
-                    let random_idx = rng.gen_range(0..n);
-                    let sample_start = random_idx * dimension;
-                    new_centroids[start..start + dimension]
-                        .copy_from_slice(&data[sample_start..sample_start + dimension]);
-                }
+            // 3. Fast centroid coordinate update and block-reduction shift directly on GPU
+            unsafe {
+                update_func.clone().launch(
+                    cfg_update,
+                    (
+                        &d_cluster_sums,
+                        &d_cluster_counts,
+                        &mut d_centroids,
+                        &mut d_shifts,
+                        k as i32,
+                        dimension as i32,
+                    ),
+                )?;
             }
 
-            centroids = new_centroids;
-            dev.htod_sync_copy_into(&centroids, &mut d_centroids)?;
+            // 4. Convergence check (only K floats transferred over PCIe instead of full dataset)
+            let shifts = dev.dtoh_sync_copy(&d_shifts)?;
+            let max_shift = shifts.into_iter().fold(0.0f32, f32::max);
 
             if max_shift <= tolerance {
                 break;
             }
         }
 
-        let engine = DistanceEngine::auto();
-        let final_inertia = (0..n)
-            .into_par_iter()
-            .map(|i| {
-                let vec_slice = &data[i * dimension..(i + 1) * dimension];
-                let (_, dist) =
-                    Self::find_nearest(vec_slice, &centroids, dimension, metric, &engine);
-                dist
-            })
-            .sum::<f32>();
+        let final_centroids = dev.dtoh_sync_copy(&d_centroids)?;
+        let inertias = dev.dtoh_sync_copy(&d_inertias)?;
+        let final_inertia = inertias.into_iter().sum::<f32>();
 
         Ok(CudaKMeansResult {
-            centroids,
+            centroids: final_centroids,
             dimension,
             k,
             iterations,
