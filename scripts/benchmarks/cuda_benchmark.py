@@ -248,6 +248,32 @@ def find_estimates_file(criterion_dir: Path, rel_subpath: str) -> Path | None:
     return None
 
 
+def ensure_cuda_symlinks() -> None:
+    """Ensures libcuda.so symlink exists on Linux systems where only libcuda.so.1 is present."""
+    if sys.platform == "win32":
+        return
+
+    search_dirs = [
+        Path("/usr/lib/x86_64-linux-gnu"),
+        Path("/usr/local/nvidia/lib64"),
+        Path("/usr/local/nvidia/lib"),
+        Path("/usr/local/cuda/lib64"),
+        Path("/usr/local/cuda/lib64/stubs"),
+        Path("/usr/lib64"),
+        Path("/usr/lib"),
+    ]
+
+    for d in search_dirs:
+        if d.exists():
+            so1 = d / "libcuda.so.1"
+            so = d / "libcuda.so"
+            if so1.exists() and not so.exists():
+                try:
+                    os.symlink(so1, so)
+                except Exception:
+                    pass
+
+
 def run_cuda_benchmarks(
     workspace_root: Path,
     num_gpus: int = DEFAULT_NUM_GPUS,
@@ -261,7 +287,21 @@ def run_cuda_benchmarks(
 ) -> bool:
     """Runs `cargo bench -p vector-cuda` for both K-Means Indexing and KNN Retrieval."""
     print("[*] [1/3] Running CUDA Indexing and Retrieval benchmarks (Criterion.rs)...")
+    ensure_cuda_symlinks()
+
     bench_env = os.environ.copy()
+    if sys.platform != "win32":
+        cuda_lib_paths = [
+            "/usr/local/cuda/lib64",
+            "/usr/local/nvidia/lib64",
+            "/usr/local/nvidia/lib",
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/lib64",
+            "/usr/lib",
+        ]
+        existing_ld = bench_env.get("LD_LIBRARY_PATH", "")
+        bench_env["LD_LIBRARY_PATH"] = ":".join(cuda_lib_paths) + (f":{existing_ld}" if existing_ld else "")
+
     bench_env[ENV_CRITERION_METRIC] = metric
     bench_env[ENV_CRITERION_NUM_GPUS] = str(num_gpus)
     bench_env[ENV_CRITERION_NUM_VECTORS] = str(num_vectors)
