@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 980" style="background-color: #181824; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Subtle Glow Filter for Line Strokes -->
+    <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Vertical Alpha Masks for Area Shading Fade to Baseline -->
+    <linearGradient id="vMaskGrad1" x1="0" y1="155.0" x2="0" y2="395.0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="65%" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.0" />
+    </linearGradient>
+
+    <linearGradient id="vMaskGrad2" x1="0" y1="575.0" x2="0" y2="815.0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="65%" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.0" />
+    </linearGradient>
+
+    <mask id="hnswAreaMask">
+      <rect x="0" y="135.0" width="1060" height="280.0" fill="url(#vMaskGrad1)" />
+    </mask>
+
+    <mask id="ivfAreaMask">
+      <rect x="0" y="555.0" width="1060" height="280.0" fill="url(#vMaskGrad2)" />
+    </mask>
+
+    <!-- HNSW Horizontal Multi-Color Gradient (Core 1 -> Core Max) -->
+    <linearGradient id="hnswGrad" x1="175.0" y1="0" x2="895.0" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0.0%" stop-color="#82aaff" />
+      <stop offset="33.3%" stop-color="#a78bfa" />
+      <stop offset="66.7%" stop-color="#c084fc" />
+      <stop offset="100.0%" stop-color="#e879f9" />
+    </linearGradient>
+
+    <!-- IVF-PQ Horizontal Multi-Color Gradient (Core 1 -> Core Max) -->
+    <linearGradient id="ivfGrad" x1="175.0" y1="0" x2="895.0" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0.0%" stop-color="#ffb86c" />
+      <stop offset="33.3%" stop-color="#38bdf8" />
+      <stop offset="66.7%" stop-color="#2dd4bf" />
+      <stop offset="100.0%" stop-color="#34d399" />
+    </linearGradient>
+  </defs>
+
+  <!-- Main Title & Subtitle -->
+  <text x="530.0" y="40" text-anchor="middle" fill="#f8f8f2" font-size="21" font-weight="bold">VectorRS: ANN Index Construction Scaling Benchmark</text>
+  <text x="530.0" y="66" text-anchor="middle" fill="#9d9eb4" font-size="12.5">Rayon Multi-Core Strong Scaling Benchmark (Metric: Cosine Similarity, N=10,000 Vectors, D=768, Samples=100)</text>
+
+  <!-- ======================================================================== -->
+  <!-- SUBPLOT 1: HNSW GRAPH CONSTRUCTION (TOP LINE PLOT) -->
+  <!-- ======================================================================== -->
+  <g>
+    <!-- Subplot 1 Header -->
+    <text x="530.0" y="112" text-anchor="middle" fill="#bd93f9" font-size="15" font-weight="bold">HNSW Graph Index Construction (Hierarchical Proximity Graphs)</text>
+    <text x="530.0" y="132" text-anchor="middle" fill="#9d9eb4" font-size="11.5">Multi-Thread Scaling (M=16, ef_construction=100, ef_search=50)</text>
+
+    <!-- Subplot 1 Y-Axis Title (Rotated) -->
+    <text transform="rotate(-90)" x="-275.0" y="28" text-anchor="middle" fill="#bd93f9" font-size="12" font-weight="600" letter-spacing="0.5px">Average HNSW Build Time (Seconds) [Lower is Better]</text>
+
+    <!-- Subplot 1 Gridlines & Labels -->
+  <line x1="110.0" y1="395.0" x2="960.0" y2="395.0" stroke="#44475a" stroke-width="1.5" />
+  <line x1="110.0" y1="365.0" x2="960.0" y2="365.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="335.0" x2="960.0" y2="335.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="305.0" x2="960.0" y2="305.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="275.0" x2="960.0" y2="275.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="245.0" x2="960.0" y2="245.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="215.0" x2="960.0" y2="215.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="185.0" x2="960.0" y2="185.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="155.0" x2="960.0" y2="155.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <text x="98.0" y="399.0" text-anchor="end" fill="#6272a4" font-size="12">0s</text>
+  <text x="98.0" y="369.0" text-anchor="end" fill="#6272a4" font-size="12">5s</text>
+  <text x="98.0" y="339.0" text-anchor="end" fill="#6272a4" font-size="12">10s</text>
+  <text x="98.0" y="309.0" text-anchor="end" fill="#6272a4" font-size="12">15s</text>
+  <text x="98.0" y="279.0" text-anchor="end" fill="#6272a4" font-size="12">20s</text>
+  <text x="98.0" y="249.0" text-anchor="end" fill="#6272a4" font-size="12">25s</text>
+  <text x="98.0" y="219.0" text-anchor="end" fill="#6272a4" font-size="12">30s</text>
+  <text x="98.0" y="189.0" text-anchor="end" fill="#6272a4" font-size="12">35s</text>
+  <text x="98.0" y="159.0" text-anchor="end" fill="#6272a4" font-size="12">40s</text>
+
+    <!-- Subplot 1 Area Shading -->
+  <!-- HNSW Multi-Color Gradient Area Shading with Vertical Fade Mask -->
+  <path d="M 175.0 395.0 L 175.0 228.2 L 415.0 294.0 L 655.0 321.8 L 895.0 333.5 L 895.0 395.0 Z" fill="url(#hnswGrad)" mask="url(#hnswAreaMask)" />
+
+    <!-- Subplot 1 Line Plot -->
+  <!-- HNSW Multi-Color Gradient Line Stroke with Glow -->
+  <path d="M 175.0 228.2 L 415.0 294.0 L 655.0 321.8 L 895.0 333.5" fill="none" stroke="url(#hnswGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#lineGlow)" />
+  <path d="M 175.0 228.2 L 415.0 294.0 L 655.0 321.8 L 895.0 333.5" fill="none" stroke="url(#hnswGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Subplot 1 Node Markers & Annotations -->
+  <!-- HNSW Node 1 Core -->
+  <line x1="175.0" y1="395.0" x2="175.0" y2="228.2" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="175.0" cy="228.2" r="8.5" fill="#82aaff" opacity="0.25" />
+  <circle cx="175.0" cy="228.2" r="5.0" fill="#181824" stroke="#82aaff" stroke-width="2.8" />
+  <text x="175.0" y="218.2" text-anchor="middle" fill="#82aaff" font-size="12" font-weight="bold">27.792s</text>
+  <text x="175.0" y="202.2" text-anchor="middle" fill="#9d9eb4" font-size="11" font-weight="bold">1-Thread (Baseline)</text>
+  <text x="175.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">1 Core</text>
+  <text x="175.0" y="433.0" text-anchor="middle" fill="#82aaff" font-size="11" font-weight="600">Sequential (1-Thread)</text>
+  <!-- HNSW Node 2 Cores -->
+  <line x1="415.0" y1="395.0" x2="415.0" y2="294.0" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="415.0" cy="294.0" r="8.5" fill="#a78bfa" opacity="0.25" />
+  <circle cx="415.0" cy="294.0" r="5.0" fill="#181824" stroke="#a78bfa" stroke-width="2.8" />
+  <text x="415.0" y="284.0" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="bold">16.840s</text>
+  <text x="415.0" y="268.0" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="bold">1.65x Faster</text>
+  <text x="415.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">2 Cores</text>
+  <text x="415.0" y="433.0" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="600">Parallel (Rayon)</text>
+  <!-- HNSW Node 4 Cores -->
+  <line x1="655.0" y1="395.0" x2="655.0" y2="321.8" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="655.0" cy="321.8" r="8.5" fill="#c084fc" opacity="0.25" />
+  <circle cx="655.0" cy="321.8" r="5.0" fill="#181824" stroke="#c084fc" stroke-width="2.8" />
+  <text x="655.0" y="311.8" text-anchor="middle" fill="#c084fc" font-size="12" font-weight="bold">12.200s</text>
+  <text x="655.0" y="295.8" text-anchor="middle" fill="#c084fc" font-size="11" font-weight="bold">2.28x Faster</text>
+  <text x="655.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">4 Cores</text>
+  <text x="655.0" y="433.0" text-anchor="middle" fill="#c084fc" font-size="11" font-weight="600">Parallel (Rayon)</text>
+  <!-- HNSW Node 8 Cores -->
+  <line x1="895.0" y1="395.0" x2="895.0" y2="333.5" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="895.0" cy="333.5" r="8.5" fill="#e879f9" opacity="0.25" />
+  <circle cx="895.0" cy="333.5" r="5.0" fill="#181824" stroke="#e879f9" stroke-width="2.8" />
+  <text x="895.0" y="323.5" text-anchor="middle" fill="#e879f9" font-size="12" font-weight="bold">10.250s</text>
+  <text x="895.0" y="307.5" text-anchor="middle" fill="#e879f9" font-size="11" font-weight="bold">2.71x Faster</text>
+  <text x="895.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">8 Cores</text>
+  <text x="895.0" y="433.0" text-anchor="middle" fill="#e879f9" font-size="11" font-weight="600">Parallel (Rayon)</text>
+
+    <!-- Subplot 1 X-Axis Title -->
+    <text x="530.0" y="455.0" text-anchor="middle" fill="#bd93f9" font-size="11.5" font-weight="600" letter-spacing="0.5px">CPU Core Allocation &amp; Rayon Thread Concurrency</text>
+  </g>
+
+  <!-- Horizontal Separator Between Subplots with Generous Spacing -->
+  <line x1="90.0" y1="480.0" x2="970.0" y2="480.0" stroke="#44475a" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.6" />
+
+  <!-- ======================================================================== -->
+  <!-- SUBPLOT 2: IVF-PQ INDEX CONSTRUCTION (BOTTOM LINE PLOT) -->
+  <!-- ======================================================================== -->
+  <g>
+    <!-- Subplot 2 Header -->
+    <text x="530.0" y="532" text-anchor="middle" fill="#2dd4bf" font-size="15" font-weight="bold">IVF-PQ Index Construction (Coarse Quantization &amp; Product Quantization)</text>
+    <text x="530.0" y="552" text-anchor="middle" fill="#9d9eb4" font-size="11.5">Multi-Thread Scaling (nlist=32 coarse Voronoi partitions, M=4 sub-vectors, K=64 sub-clusters)</text>
+
+    <!-- Subplot 2 Y-Axis Title (Rotated) -->
+    <text transform="rotate(-90)" x="-695.0" y="28" text-anchor="middle" fill="#bd93f9" font-size="12" font-weight="600" letter-spacing="0.5px">Average IVF-PQ Build Time (Seconds) [Lower is Better]</text>
+
+    <!-- Subplot 2 Gridlines & Labels -->
+  <line x1="110.0" y1="815.0" x2="960.0" y2="815.0" stroke="#44475a" stroke-width="1.5" />
+  <line x1="110.0" y1="780.7" x2="960.0" y2="780.7" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="746.4" x2="960.0" y2="746.4" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="712.1" x2="960.0" y2="712.1" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="677.9" x2="960.0" y2="677.9" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="643.6" x2="960.0" y2="643.6" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="609.3" x2="960.0" y2="609.3" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="575.0" x2="960.0" y2="575.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <text x="98.0" y="819.0" text-anchor="end" fill="#6272a4" font-size="12">0.0s</text>
+  <text x="98.0" y="784.7" text-anchor="end" fill="#6272a4" font-size="12">0.5s</text>
+  <text x="98.0" y="750.4" text-anchor="end" fill="#6272a4" font-size="12">1s</text>
+  <text x="98.0" y="716.1" text-anchor="end" fill="#6272a4" font-size="12">1.5s</text>
+  <text x="98.0" y="681.9" text-anchor="end" fill="#6272a4" font-size="12">2s</text>
+  <text x="98.0" y="647.6" text-anchor="end" fill="#6272a4" font-size="12">2.5s</text>
+  <text x="98.0" y="613.3" text-anchor="end" fill="#6272a4" font-size="12">3s</text>
+  <text x="98.0" y="579.0" text-anchor="end" fill="#6272a4" font-size="12">3.5s</text>
+
+    <!-- Subplot 2 Area Shading -->
+  <!-- IVF-PQ Multi-Color Gradient Area Shading with Vertical Fade Mask -->
+  <path d="M 175.0 815.0 L 175.0 633.3 L 415.0 697.0 L 655.0 723.1 L 895.0 732.5 L 895.0 815.0 Z" fill="url(#ivfGrad)" mask="url(#ivfAreaMask)" />
+
+    <!-- Subplot 2 Line Plot -->
+  <!-- IVF-PQ Multi-Color Gradient Line Stroke with Glow -->
+  <path d="M 175.0 633.3 L 415.0 697.0 L 655.0 723.1 L 895.0 732.5" fill="none" stroke="url(#ivfGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#lineGlow)" />
+  <path d="M 175.0 633.3 L 415.0 697.0 L 655.0 723.1 L 895.0 732.5" fill="none" stroke="url(#ivfGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Subplot 2 Node Markers & Annotations -->
+  <!-- IVF-PQ Node 1 Core -->
+  <line x1="175.0" y1="815.0" x2="175.0" y2="633.3" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="175.0" cy="633.3" r="8.5" fill="#ffb86c" opacity="0.25" />
+  <circle cx="175.0" cy="633.3" r="5.0" fill="#181824" stroke="#ffb86c" stroke-width="2.8" />
+  <text x="175.0" y="623.3" text-anchor="middle" fill="#ffb86c" font-size="12" font-weight="bold">2.650s</text>
+  <text x="175.0" y="607.3" text-anchor="middle" fill="#9d9eb4" font-size="11" font-weight="bold">1-Thread (Baseline)</text>
+  <text x="175.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">1 Core</text>
+  <text x="175.0" y="853.0" text-anchor="middle" fill="#ffb86c" font-size="11" font-weight="600">Sequential (1-Thread)</text>
+  <!-- IVF-PQ Node 2 Cores -->
+  <line x1="415.0" y1="815.0" x2="415.0" y2="697.0" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="415.0" cy="697.0" r="8.5" fill="#38bdf8" opacity="0.25" />
+  <circle cx="415.0" cy="697.0" r="5.0" fill="#181824" stroke="#38bdf8" stroke-width="2.8" />
+  <text x="415.0" y="687.0" text-anchor="middle" fill="#38bdf8" font-size="12" font-weight="bold">1.720s</text>
+  <text x="415.0" y="671.0" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="bold">1.54x Faster</text>
+  <text x="415.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">2 Cores</text>
+  <text x="415.0" y="853.0" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="600">Parallel (Rayon)</text>
+  <!-- IVF-PQ Node 4 Cores -->
+  <line x1="655.0" y1="815.0" x2="655.0" y2="723.1" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="655.0" cy="723.1" r="8.5" fill="#2dd4bf" opacity="0.25" />
+  <circle cx="655.0" cy="723.1" r="5.0" fill="#181824" stroke="#2dd4bf" stroke-width="2.8" />
+  <text x="655.0" y="713.1" text-anchor="middle" fill="#2dd4bf" font-size="12" font-weight="bold">1.340s</text>
+  <text x="655.0" y="697.1" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="bold">1.98x Faster</text>
+  <text x="655.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">4 Cores</text>
+  <text x="655.0" y="853.0" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="600">Parallel (Rayon)</text>
+  <!-- IVF-PQ Node 8 Cores -->
+  <line x1="895.0" y1="815.0" x2="895.0" y2="732.5" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="895.0" cy="732.5" r="8.5" fill="#34d399" opacity="0.25" />
+  <circle cx="895.0" cy="732.5" r="5.0" fill="#181824" stroke="#34d399" stroke-width="2.8" />
+  <text x="895.0" y="722.5" text-anchor="middle" fill="#34d399" font-size="12" font-weight="bold">1.203s</text>
+  <text x="895.0" y="706.5" text-anchor="middle" fill="#34d399" font-size="11" font-weight="bold">2.20x Faster</text>
+  <text x="895.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">8 Cores</text>
+  <text x="895.0" y="853.0" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">Parallel (Rayon)</text>
+
+    <!-- Subplot 2 X-Axis Title -->
+    <text x="530.0" y="875.0" text-anchor="middle" fill="#bd93f9" font-size="11.5" font-weight="600" letter-spacing="0.5px">CPU Core Allocation &amp; Rayon Thread Concurrency</text>
+  </g>
+
+  <!-- Global Footer -->
+  <text x="530.0" y="936" text-anchor="middle" fill="#6272a4" font-size="11.5">Rayon Multi-Core Work-Stealing Parallelism vs. Single-Thread Sequential Baseline</text>
+</svg>

@@ -14,7 +14,7 @@ It automatically renders a publication-quality SVG chart featuring:
 - 'k' abbreviated Y-axis numeric scale labels (e.g., 50k QPS, 100k QPS).
 
 Usage Examples:
-    # Run full worker benchmarks and generate the SVG plot:
+    # Run full live worker benchmarks and generate the SVG plot:
     python scripts/benchmarks/worker_benchmark.py
 
     # Generate the SVG plot ONLY without running cargo bench (uses fallback scaling data):
@@ -25,8 +25,14 @@ import argparse
 import io
 import math
 import os
+import random
+import re
+import socket
+import struct
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 # Ensure UTF-8 output on Windows terminals
@@ -50,8 +56,7 @@ DEFAULT_OUTPUT_FILENAME = "worker_benchmark.svg"
 
 
 def get_default_worker_steps() -> list[int]:
-    """Generates clean exponential worker steps matching the host machine CPU
-    capacity."""
+    """Generates clean exponential worker steps matching the host machine CPU capacity."""
     max_cores = os.cpu_count() or 8
     steps = [1]
     curr = 2
@@ -66,7 +71,7 @@ def get_default_worker_steps() -> list[int]:
 # Default Worker Node Shards dynamically evaluated based on host device CPU count
 DEFAULT_WORKERS = get_default_worker_steps()
 
-# Baseline Sharded Query Latencies in Milliseconds (ms) for N=100,000 D=768
+# Baseline Sharded Query Latencies in Milliseconds (ms) for N=100,000 D=768 (Used for --skip-bench)
 FALLBACK_LATENCY_MS = {
     1: 42.6,  # 1 worker shard (100k vectors, single-node baseline)
     2: 22.8,  # 2 worker shards (50k vectors / shard, 1.87x speedup)
@@ -118,9 +123,7 @@ PALETTE_WORKER_NODES = [
 # Text & Labels
 TITLE_MAIN = "VectorRS: Distributed gRPC Scatter-Gather Search Scaling"
 AXIS_TITLE_Y = "Average Cluster Search Throughput (Higher is Better)"
-AXIS_TITLE_X = (
-    "Distributed Shard Partitions &amp; gRPC Worker Nodes (Tonic Async Fan-Out)"
-)
+AXIS_TITLE_X = "Distributed Shard Partitions &amp; gRPC Worker Nodes (Tonic Async Fan-Out)"
 
 
 # ==============================================================================
@@ -151,26 +154,212 @@ def get_metric_display_name(metric: str) -> str:
     return mapping.get(metric.lower(), metric.title())
 
 
+def find_free_port() -> int:
+    """Finds an available TCP port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
+
+
+def wait_for_port(host: str, port: int, timeout: float = 20.0) -> bool:
+    """Polls a TCP port until it is open and accepting connections."""
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=0.5):
+                return True
+        except (OSError, ConnectionRefusedError):
+            time.sleep(0.1)
+    return False
+
+
+def generate_binary_shards(
+    output_dir: Path,
+    num_shards: int,
+    total_vectors: int,
+    dimension: int,
+) -> list[Path]:
+    """Generates synthetic binary vector shards formatted for MmapStorage."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shard_paths = []
+    vecs_per_shard = max(1, total_vectors // num_shards)
+
+    for shard_id in range(num_shards):
+        shard_path = output_dir / f"shard_{shard_id}.bin"
+        shard_paths.append(shard_path)
+        with open(shard_path, "wb") as f:
+            header = struct.pack("<QQQ", 0x56454352_53544F52, vecs_per_shard, dimension)
+            f.write(header)
+            for _ in range(vecs_per_shard):
+                raw = [random.gauss(0.0, 1.0) for _ in range(dimension)]
+                norm = math.sqrt(sum(x * x for x in raw))
+                if norm > 0.0:
+                    vec = [x / norm for x in raw]
+                else:
+                    vec = [0.0] * dimension
+                f.write(struct.pack(f"<{dimension}f", *vec))
+    return shard_paths
+
+
 def run_worker_benchmarks(
     workspace_root: Path,
     dimension: int = DEFAULT_DIMENSION,
     num_vectors: int = DEFAULT_NUM_VECTORS,
     metric: str = DEFAULT_METRIC,
 ) -> bool:
-    """Runs `cargo check` on vector-coordinator and vector-worker."""
-    print("[*] [1/3] Verifying distributed coordinator and worker compilation...")
+    """Builds release binaries for coordinator, worker, and benchmark client."""
+    print("[*] [1/3] Compiling distributed coordinator, worker, and client binaries...")
     metric_label = get_metric_display_name(metric)
     print(
         f"  -> Benchmark Config: Metric={metric_label} | N={num_vectors:,} vectors | Dimension={dimension}"
     )
 
-    cmd = ["cargo", "check", "-p", "vector-coordinator", "-p", "vector-worker"]
+    cmd = [
+        "cargo",
+        "build",
+        "--release",
+        "-p",
+        "vector-coordinator",
+        "-p",
+        "vector-worker",
+        "--bin",
+        "client",
+    ]
     try:
         res = subprocess.run(cmd, cwd=workspace_root, check=True)
         return res.returncode == 0
     except (subprocess.SubprocessError, OSError) as e:
-        print(f"[!] Warning: Compilation check failed: {e}", file=sys.stderr)
+        print(f"[!] Warning: Compilation failed: {e}", file=sys.stderr)
         return False
+
+
+def benchmark_cluster_live(
+    workspace_root: Path,
+    num_workers: int,
+    num_vectors: int,
+    dimension: int,
+    metric: str,
+    num_queries: int,
+) -> tuple[int, float]:
+    """Spawns genuine worker and coordinator processes, executes queries via client,
+    and measures actual QPS and latency."""
+    exe_suffix = ".exe" if sys.platform == "win32" else ""
+    worker_bin = workspace_root / "target" / "release" / f"vector-worker{exe_suffix}"
+    coord_bin = workspace_root / "target" / "release" / f"vector-coordinator{exe_suffix}"
+    client_bin = workspace_root / "target" / "release" / f"client{exe_suffix}"
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        temp_path = Path(tmp_dir)
+        shard_paths = generate_binary_shards(
+            temp_path, num_workers, num_vectors, dimension
+        )
+
+        coord_port = find_free_port()
+        worker_ports = [find_free_port() for _ in range(num_workers)]
+
+        worker_procs = []
+        try:
+            # 1. Spawn Worker Processes
+            for idx, (port, shard_file) in enumerate(zip(worker_ports, shard_paths)):
+                cmd = [
+                    str(worker_bin),
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    str(port),
+                    "--worker-id",
+                    f"worker-{idx}",
+                    "--shard-id",
+                    str(idx),
+                    "--index-type",
+                    "hnsw",
+                    "--metric",
+                    metric,
+                    "--storage-file",
+                    str(shard_file),
+                ]
+                p = subprocess.Popen(
+                    cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                worker_procs.append(p)
+
+            # Wait for all workers to accept connections
+            for port in worker_ports:
+                if not wait_for_port("127.0.0.1", port, timeout=20.0):
+                    raise RuntimeError(f"Worker on port {port} failed to start.")
+
+            # 2. Spawn Coordinator Process
+            workers_arg = ",".join(f"http://127.0.0.1:{p}" for p in worker_ports)
+            coord_cmd = [
+                str(coord_bin),
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(coord_port),
+                "--workers",
+                workers_arg,
+            ]
+            coord_proc = subprocess.Popen(
+                coord_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+
+            try:
+                if not wait_for_port("127.0.0.1", coord_port, timeout=20.0):
+                    raise RuntimeError("Coordinator failed to start.")
+
+                # 3. Execute Live Search Queries via Client CLI
+                client_cmd = [
+                    str(client_bin),
+                    "--coordinator",
+                    f"http://127.0.0.1:{coord_port}",
+                    "--metric",
+                    metric,
+                    "--dimension",
+                    str(dimension),
+                    "-n",
+                    str(num_queries),
+                    "-k",
+                    "10",
+                    "--ef-search",
+                    "64",
+                ]
+                client_run = subprocess.run(
+                    client_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                    check=True,
+                )
+
+                # Parse Client Output
+                qps_match = re.search(r"Throughput:\s+([\d.]+)\s+QPS", client_run.stdout)
+                p50_match = re.search(r"P50:\s+(\d+)\s+µs", client_run.stdout)
+
+                if qps_match:
+                    measured_qps = int(float(qps_match.group(1)))
+                    measured_lat_ms = (
+                        (float(p50_match.group(1)) / 1000.0)
+                        if p50_match
+                        else (1000.0 / measured_qps if measured_qps > 0 else 1.0)
+                    )
+                    return measured_qps, measured_lat_ms
+                else:
+                    raise RuntimeError(f"Could not parse client output: {client_run.stdout}")
+
+            finally:
+                coord_proc.terminate()
+                try:
+                    coord_proc.wait(timeout=2.0)
+                except Exception:
+                    coord_proc.kill()
+
+        finally:
+            for p in worker_procs:
+                p.terminate()
+                try:
+                    p.wait(timeout=2.0)
+                except Exception:
+                    p.kill()
 
 
 def collect_worker_metrics(
@@ -179,24 +368,51 @@ def collect_worker_metrics(
     dimension: int = DEFAULT_DIMENSION,
     metric: str = DEFAULT_METRIC,
     workers: list[int] | None = None,
+    samples: int = DEFAULT_SAMPLE_SIZE,
+    skip_bench: bool = False,
 ) -> dict:
-    """Computes throughput QPS and speedups across worker node shards."""
+    """Computes throughput QPS and speedups across worker node shards by executing live benchmarks."""
     if workers is None:
         workers = get_default_worker_steps()
 
-    base_lat = FALLBACK_LATENCY_MS.get(1, 42.6)
-
     items = []
+    base_qps = 0.0
+
     for idx, count in enumerate(workers):
-        if count in FALLBACK_LATENCY_MS:
-            lat_ms = FALLBACK_LATENCY_MS[count]
-        else:
-            lat_ms = max(base_lat / (count**0.88), 0.5)
-
-        qps = int(1_000.0 / lat_ms * 1000.0) if lat_ms > 0 else 0
-        speedup = base_lat / lat_ms
-
         color = PALETTE_WORKER_NODES[idx % len(PALETTE_WORKER_NODES)]
+        measured = False
+        qps = 0
+        lat_ms = 0.0
+
+        if not skip_bench:
+            print(f"  -> Benchmarking {count} Worker Node{'s' if count > 1 else ''} with N={num_vectors:,}...")
+            try:
+                qps, lat_ms = benchmark_cluster_live(
+                    workspace_root=workspace_root,
+                    num_workers=count,
+                    num_vectors=num_vectors,
+                    dimension=dimension,
+                    metric=metric,
+                    num_queries=samples,
+                )
+                measured = True
+                print(f"     [OK] Result: {qps:,} QPS | Latency: {lat_ms:.2f} ms")
+            except Exception as e:
+                print(f"     [!] Live benchmark failed for {count} workers ({e}), falling back to estimate...", file=sys.stderr)
+
+        if not measured:
+            # Fallback estimation for --skip-bench or runtime errors
+            if count in FALLBACK_LATENCY_MS:
+                lat_ms = FALLBACK_LATENCY_MS[count]
+            else:
+                base_lat = FALLBACK_LATENCY_MS.get(1, 42.6)
+                lat_ms = max(base_lat / (count**0.88), 0.5)
+            qps = int(1_000.0 / lat_ms * 1000.0) if lat_ms > 0 else 0
+
+        if idx == 0 or base_qps <= 0.0:
+            base_qps = float(qps) if qps > 0 else 1.0
+
+        speedup = (qps / base_qps) if base_qps > 0 else 1.0
         badge_text = "1-Node (Baseline)" if count == 1 else f"{speedup:.2f}x Faster"
         badge_color = "#9d9eb4" if count == 1 else color
 
@@ -279,8 +495,7 @@ def generate_worker_svg(
     metric: str = DEFAULT_METRIC,
     sample_count: int = DEFAULT_SAMPLE_SIZE,
 ) -> None:
-    """Renders the publication-grade dark-mode SVG chart for distributed worker
-    scaling."""
+    """Renders the publication-grade dark-mode SVG chart for distributed worker scaling."""
     items = data["items"]
     num_items = len(items)
     center_x = SVG_CANVAS_WIDTH / 2.0
@@ -519,7 +734,7 @@ def main() -> None:
     print(f"Workers:      {args.workers}")
     print("=" * 76)
 
-    # Step 1: Run benchmark if not skipped
+    # Step 1: Run benchmark build if not skipped
     if not args.skip_bench:
         run_worker_benchmarks(
             workspace_root,
@@ -538,6 +753,8 @@ def main() -> None:
         dimension=args.dim,
         metric=args.metric,
         workers=args.workers,
+        samples=args.samples,
+        skip_bench=args.skip_bench,
     )
 
     # Print terminal summary

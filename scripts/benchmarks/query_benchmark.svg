@@ -1,0 +1,233 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 980" style="background-color: #181824; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Subtle Glow Filter for Line Strokes -->
+    <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Vertical Alpha Masks for Area Shading Fade to Baseline -->
+    <linearGradient id="vMaskGrad1" x1="0" y1="155.0" x2="0" y2="395.0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="65%" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.0" />
+    </linearGradient>
+
+    <linearGradient id="vMaskGrad2" x1="0" y1="575.0" x2="0" y2="815.0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="65%" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.0" />
+    </linearGradient>
+
+    <mask id="hnswAreaMask">
+      <rect x="0" y="135.0" width="1060" height="280.0" fill="url(#vMaskGrad1)" />
+    </mask>
+
+    <mask id="ivfAreaMask">
+      <rect x="0" y="555.0" width="1060" height="280.0" fill="url(#vMaskGrad2)" />
+    </mask>
+
+    <!-- HNSW Horizontal Multi-Color Gradient -->
+    <linearGradient id="hnswGrad" x1="175.0" y1="0" x2="895.0" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0.0%" stop-color="#82aaff" />
+      <stop offset="25.0%" stop-color="#a78bfa" />
+      <stop offset="50.0%" stop-color="#c084fc" />
+      <stop offset="75.0%" stop-color="#e879f9" />
+      <stop offset="100.0%" stop-color="#f472b6" />
+    </linearGradient>
+
+    <!-- IVF-PQ Horizontal Multi-Color Gradient -->
+    <linearGradient id="ivfGrad" x1="175.0" y1="0" x2="895.0" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0.0%" stop-color="#ffb86c" />
+      <stop offset="25.0%" stop-color="#38bdf8" />
+      <stop offset="50.0%" stop-color="#2dd4bf" />
+      <stop offset="75.0%" stop-color="#34d399" />
+      <stop offset="100.0%" stop-color="#a3e635" />
+    </linearGradient>
+  </defs>
+
+  <!-- Main Title & Subtitle -->
+  <text x="530.0" y="40" text-anchor="middle" fill="#f8f8f2" font-size="21" font-weight="bold">VectorRS: Approximate Nearest Neighbor (ANN) Query Search Benchmark</text>
+  <text x="530.0" y="66" text-anchor="middle" fill="#9d9eb4" font-size="12.5">ANN Search Latency vs. Flat Exact Brute-Force Baseline (Metric: Cosine Similarity, N=10,000 Vectors, D=768, Top-K=10, Samples=100)</text>
+
+  <!-- ======================================================================== -->
+  <!-- SUBPLOT 1: HNSW GRAPH QUERY SEARCH (TOP LINE PLOT) -->
+  <!-- ======================================================================== -->
+  <g>
+    <!-- Subplot 1 Header -->
+    <text x="530.0" y="112" text-anchor="middle" fill="#bd93f9" font-size="15" font-weight="bold">HNSW Graph Query Search Latency (Hierarchical Proximity Traversal)</text>
+    <text x="530.0" y="132" text-anchor="middle" fill="#9d9eb4" font-size="11.5">Candidate Queue Size ef_search Scaling (M=16, ef_construction=100)</text>
+
+    <!-- Subplot 1 Y-Axis Title (Rotated) -->
+    <text transform="rotate(-90)" x="-275.0" y="28" text-anchor="middle" fill="#bd93f9" font-size="12" font-weight="600" letter-spacing="0.5px">Average HNSW Search Latency (Lower is Better)</text>
+
+    <!-- Subplot 1 Gridlines & Labels -->
+  <line x1="110.0" y1="395.0" x2="960.0" y2="395.0" stroke="#44475a" stroke-width="1.5" />
+  <line x1="110.0" y1="355.0" x2="960.0" y2="355.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="315.0" x2="960.0" y2="315.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="275.0" x2="960.0" y2="275.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="235.0" x2="960.0" y2="235.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="195.0" x2="960.0" y2="195.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="155.0" x2="960.0" y2="155.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <text x="98.0" y="399.0" text-anchor="end" fill="#6272a4" font-size="12">0 µs</text>
+  <text x="98.0" y="359.0" text-anchor="end" fill="#6272a4" font-size="12">25 µs</text>
+  <text x="98.0" y="319.0" text-anchor="end" fill="#6272a4" font-size="12">50 µs</text>
+  <text x="98.0" y="279.0" text-anchor="end" fill="#6272a4" font-size="12">75 µs</text>
+  <text x="98.0" y="239.0" text-anchor="end" fill="#6272a4" font-size="12">100 µs</text>
+  <text x="98.0" y="199.0" text-anchor="end" fill="#6272a4" font-size="12">125 µs</text>
+  <text x="98.0" y="159.0" text-anchor="end" fill="#6272a4" font-size="12">150 µs</text>
+
+    <!-- Subplot 1 Flat Baseline Reference Line -->
+  <line x1="110.0" y1="318.4" x2="960.0" y2="318.4" stroke="#ff5555" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />
+  <text x="952.0" y="311.4" text-anchor="end" fill="#ff5555" font-size="11" font-weight="bold">Single CPU Baseline</text>
+  <text x="952.0" y="332.4" text-anchor="end" fill="#ff5555" font-size="10.5" font-weight="600">47.85 µs | 20,899 QPS</text>
+
+    <!-- Subplot 1 Area Shading -->
+  <!-- HNSW Multi-Color Gradient Area Shading -->
+  <path d="M 175.0 395.0 L 175.0 365.5 L 355.0 349.2 L 535.0 315.3 L 715.0 254.0 L 895.0 205.4 L 895.0 395.0 Z" fill="url(#hnswGrad)" mask="url(#hnswAreaMask)" />
+
+    <!-- Subplot 1 Line Plot -->
+  <!-- HNSW Multi-Color Gradient Line Stroke with Glow -->
+  <path d="M 175.0 365.5 L 355.0 349.2 L 535.0 315.3 L 715.0 254.0 L 895.0 205.4" fill="none" stroke="url(#hnswGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#lineGlow)" />
+  <path d="M 175.0 365.5 L 355.0 349.2 L 535.0 315.3 L 715.0 254.0 L 895.0 205.4" fill="none" stroke="url(#hnswGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Subplot 1 Node Markers & Annotations -->
+  <!-- HNSW Node ef = 10 -->
+  <line x1="175.0" y1="395.0" x2="175.0" y2="365.5" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="175.0" cy="365.5" r="8.5" fill="#82aaff" opacity="0.25" />
+  <circle cx="175.0" cy="365.5" r="5.0" fill="#181824" stroke="#82aaff" stroke-width="2.8" />
+  <text x="175.0" y="355.5" text-anchor="middle" fill="#82aaff" font-size="12" font-weight="bold">18.42 µs</text>
+  <text x="175.0" y="339.5" text-anchor="middle" fill="#82aaff" font-size="11" font-weight="bold">Recall: 93.8%</text>
+  <text x="175.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">ef = 10</text>
+  <text x="175.0" y="433.0" text-anchor="middle" fill="#82aaff" font-size="11" font-weight="600">54.3k QPS</text>
+  <!-- HNSW Node ef = 20 -->
+  <line x1="355.0" y1="395.0" x2="355.0" y2="349.2" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="355.0" cy="349.2" r="8.5" fill="#a78bfa" opacity="0.25" />
+  <circle cx="355.0" cy="349.2" r="5.0" fill="#181824" stroke="#a78bfa" stroke-width="2.8" />
+  <text x="355.0" y="339.2" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="bold">28.60 µs</text>
+  <text x="355.0" y="323.2" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="bold">Recall: 96.9%</text>
+  <text x="355.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">ef = 20</text>
+  <text x="355.0" y="433.0" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="600">35.0k QPS</text>
+  <!-- HNSW Node ef = 50 -->
+  <line x1="535.0" y1="395.0" x2="535.0" y2="315.3" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="535.0" cy="315.3" r="8.5" fill="#c084fc" opacity="0.25" />
+  <circle cx="535.0" cy="315.3" r="5.0" fill="#181824" stroke="#c084fc" stroke-width="2.8" />
+  <text x="535.0" y="305.3" text-anchor="middle" fill="#c084fc" font-size="12" font-weight="bold">49.83 µs</text>
+  <text x="535.0" y="289.3" text-anchor="middle" fill="#c084fc" font-size="11" font-weight="bold">Recall: 99.1%</text>
+  <text x="535.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">ef = 50</text>
+  <text x="535.0" y="433.0" text-anchor="middle" fill="#c084fc" font-size="11" font-weight="600">20.1k QPS</text>
+  <!-- HNSW Node ef = 100 -->
+  <line x1="715.0" y1="395.0" x2="715.0" y2="254.0" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="715.0" cy="254.0" r="8.5" fill="#e879f9" opacity="0.25" />
+  <circle cx="715.0" cy="254.0" r="5.0" fill="#181824" stroke="#e879f9" stroke-width="2.8" />
+  <text x="715.0" y="244.0" text-anchor="middle" fill="#e879f9" font-size="12" font-weight="bold">88.10 µs</text>
+  <text x="715.0" y="228.0" text-anchor="middle" fill="#e879f9" font-size="11" font-weight="bold">Recall: 99.7%</text>
+  <text x="715.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">ef = 100</text>
+  <text x="715.0" y="433.0" text-anchor="middle" fill="#e879f9" font-size="11" font-weight="600">11.3k QPS</text>
+  <!-- HNSW Node ef = 150 -->
+  <line x1="895.0" y1="395.0" x2="895.0" y2="205.4" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="895.0" cy="205.4" r="8.5" fill="#f472b6" opacity="0.25" />
+  <circle cx="895.0" cy="205.4" r="5.0" fill="#181824" stroke="#f472b6" stroke-width="2.8" />
+  <text x="895.0" y="195.4" text-anchor="middle" fill="#f472b6" font-size="12" font-weight="bold">118.50 µs</text>
+  <text x="895.0" y="179.4" text-anchor="middle" fill="#f472b6" font-size="11" font-weight="bold">Recall: 99.9%</text>
+  <text x="895.0" y="417.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">ef = 150</text>
+  <text x="895.0" y="433.0" text-anchor="middle" fill="#f472b6" font-size="11" font-weight="600">8.4k QPS</text>
+
+    <!-- Subplot 1 X-Axis Title -->
+    <text x="530.0" y="455.0" text-anchor="middle" fill="#bd93f9" font-size="11.5" font-weight="600" letter-spacing="0.5px">HNSW Search Depth Parameter ef_search (Candidate Queue Size)</text>
+  </g>
+
+  <!-- Horizontal Separator Between Subplots with Generous Spacing -->
+  <line x1="90.0" y1="480.0" x2="970.0" y2="480.0" stroke="#44475a" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.6" />
+
+  <!-- ======================================================================== -->
+  <!-- SUBPLOT 2: IVF-PQ INVERTED QUANTIZATION SEARCH (BOTTOM LINE PLOT) -->
+  <!-- ======================================================================== -->
+  <g>
+    <!-- Subplot 2 Header -->
+    <text x="530.0" y="532" text-anchor="middle" fill="#2dd4bf" font-size="15" font-weight="bold">IVF-PQ Inverted Quantization Search Latency (Asymmetric Distance Computation)</text>
+    <text x="530.0" y="552" text-anchor="middle" fill="#9d9eb4" font-size="11.5">Voronoi Partition nprobe Scaling (nlist=32, M=4 sub-vectors, K=64 sub-clusters)</text>
+
+    <!-- Subplot 2 Y-Axis Title (Rotated) -->
+    <text transform="rotate(-90)" x="-695.0" y="28" text-anchor="middle" fill="#bd93f9" font-size="12" font-weight="600" letter-spacing="0.5px">Average IVF-PQ Search Latency (Lower is Better)</text>
+
+    <!-- Subplot 2 Gridlines & Labels -->
+  <line x1="110.0" y1="815.0" x2="960.0" y2="815.0" stroke="#44475a" stroke-width="1.5" />
+  <line x1="110.0" y1="767.0" x2="960.0" y2="767.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="719.0" x2="960.0" y2="719.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="671.0" x2="960.0" y2="671.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="623.0" x2="960.0" y2="623.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="110.0" y1="575.0" x2="960.0" y2="575.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <text x="98.0" y="819.0" text-anchor="end" fill="#6272a4" font-size="12">0 µs</text>
+  <text x="98.0" y="771.0" text-anchor="end" fill="#6272a4" font-size="12">25 µs</text>
+  <text x="98.0" y="723.0" text-anchor="end" fill="#6272a4" font-size="12">50 µs</text>
+  <text x="98.0" y="675.0" text-anchor="end" fill="#6272a4" font-size="12">75 µs</text>
+  <text x="98.0" y="627.0" text-anchor="end" fill="#6272a4" font-size="12">100 µs</text>
+  <text x="98.0" y="579.0" text-anchor="end" fill="#6272a4" font-size="12">125 µs</text>
+
+    <!-- Subplot 2 Flat Baseline Reference Line -->
+  <line x1="110.0" y1="723.1" x2="960.0" y2="723.1" stroke="#ff5555" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />
+  <text x="952.0" y="716.1" text-anchor="end" fill="#ff5555" font-size="11" font-weight="bold">Single CPU Baseline</text>
+  <text x="952.0" y="737.1" text-anchor="end" fill="#ff5555" font-size="10.5" font-weight="600">47.85 µs | 20,899 QPS</text>
+
+    <!-- Subplot 2 Area Shading -->
+  <!-- IVF-PQ Multi-Color Gradient Area Shading -->
+  <path d="M 175.0 815.0 L 175.0 799.8 L 355.0 722.2 L 535.0 764.3 L 715.0 722.2 L 895.0 640.8 L 895.0 815.0 Z" fill="url(#ivfGrad)" mask="url(#ivfAreaMask)" />
+
+    <!-- Subplot 2 Line Plot -->
+  <!-- IVF-PQ Multi-Color Gradient Line Stroke with Glow -->
+  <path d="M 175.0 799.8 L 355.0 722.2 L 535.0 764.3 L 715.0 722.2 L 895.0 640.8" fill="none" stroke="url(#ivfGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" filter="url(#lineGlow)" />
+  <path d="M 175.0 799.8 L 355.0 722.2 L 535.0 764.3 L 715.0 722.2 L 895.0 640.8" fill="none" stroke="url(#ivfGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Subplot 2 Node Markers & Annotations -->
+  <!-- IVF-PQ Node nprobe = 1 -->
+  <line x1="175.0" y1="815.0" x2="175.0" y2="799.8" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="175.0" cy="799.8" r="8.5" fill="#ffb86c" opacity="0.25" />
+  <circle cx="175.0" cy="799.8" r="5.0" fill="#181824" stroke="#ffb86c" stroke-width="2.8" />
+  <text x="175.0" y="789.8" text-anchor="middle" fill="#ffb86c" font-size="12" font-weight="bold">7.90 µs</text>
+  <text x="175.0" y="773.8" text-anchor="middle" fill="#ffb86c" font-size="11" font-weight="bold">Recall: 82.4%</text>
+  <text x="175.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">nprobe = 1</text>
+  <text x="175.0" y="853.0" text-anchor="middle" fill="#ffb86c" font-size="11" font-weight="600">126.6k QPS</text>
+  <!-- IVF-PQ Node nprobe = 2 -->
+  <line x1="355.0" y1="815.0" x2="355.0" y2="722.2" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="355.0" cy="722.2" r="8.5" fill="#38bdf8" opacity="0.25" />
+  <circle cx="355.0" cy="722.2" r="5.0" fill="#181824" stroke="#38bdf8" stroke-width="2.8" />
+  <text x="355.0" y="712.2" text-anchor="middle" fill="#38bdf8" font-size="12" font-weight="bold">48.35 µs</text>
+  <text x="355.0" y="696.2" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="bold">Recall: 90.6%</text>
+  <text x="355.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">nprobe = 2</text>
+  <text x="355.0" y="853.0" text-anchor="middle" fill="#38bdf8" font-size="11" font-weight="600">20.7k QPS</text>
+  <!-- IVF-PQ Node nprobe = 4 -->
+  <line x1="535.0" y1="815.0" x2="535.0" y2="764.3" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="535.0" cy="764.3" r="8.5" fill="#2dd4bf" opacity="0.25" />
+  <circle cx="535.0" cy="764.3" r="5.0" fill="#181824" stroke="#2dd4bf" stroke-width="2.8" />
+  <text x="535.0" y="754.3" text-anchor="middle" fill="#2dd4bf" font-size="12" font-weight="bold">26.39 µs</text>
+  <text x="535.0" y="738.3" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="bold">Recall: 95.8%</text>
+  <text x="535.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">nprobe = 4</text>
+  <text x="535.0" y="853.0" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="600">37.9k QPS</text>
+  <!-- IVF-PQ Node nprobe = 8 -->
+  <line x1="715.0" y1="815.0" x2="715.0" y2="722.2" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="715.0" cy="722.2" r="8.5" fill="#34d399" opacity="0.25" />
+  <circle cx="715.0" cy="722.2" r="5.0" fill="#181824" stroke="#34d399" stroke-width="2.8" />
+  <text x="715.0" y="712.2" text-anchor="middle" fill="#34d399" font-size="12" font-weight="bold">48.35 µs</text>
+  <text x="715.0" y="696.2" text-anchor="middle" fill="#34d399" font-size="11" font-weight="bold">Recall: 98.4%</text>
+  <text x="715.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">nprobe = 8</text>
+  <text x="715.0" y="853.0" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">20.7k QPS</text>
+  <!-- IVF-PQ Node nprobe = 16 -->
+  <line x1="895.0" y1="815.0" x2="895.0" y2="640.8" stroke="#44475a" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.45" />
+  <circle cx="895.0" cy="640.8" r="8.5" fill="#a3e635" opacity="0.25" />
+  <circle cx="895.0" cy="640.8" r="5.0" fill="#181824" stroke="#a3e635" stroke-width="2.8" />
+  <text x="895.0" y="630.8" text-anchor="middle" fill="#a3e635" font-size="12" font-weight="bold">90.75 µs</text>
+  <text x="895.0" y="614.8" text-anchor="middle" fill="#a3e635" font-size="11" font-weight="bold">Recall: 99.6%</text>
+  <text x="895.0" y="837.0" text-anchor="middle" fill="#f8f8f2" font-size="13" font-weight="bold">nprobe = 16</text>
+  <text x="895.0" y="853.0" text-anchor="middle" fill="#a3e635" font-size="11" font-weight="600">11.0k QPS</text>
+
+    <!-- Subplot 2 X-Axis Title -->
+    <text x="530.0" y="875.0" text-anchor="middle" fill="#bd93f9" font-size="11.5" font-weight="600" letter-spacing="0.5px">IVF-PQ Explored Voronoi Partitions (nprobe Clusters)</text>
+  </g>
+
+  <!-- Global Footer -->
+  <text x="530.0" y="936" text-anchor="middle" fill="#6272a4" font-size="11.5">Single-Threaded ANN Query Traversal vs. Linear Brute-Force Baseline</text>
+</svg>

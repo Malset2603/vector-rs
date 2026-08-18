@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 610" style="background-color: #181824; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <!-- Title & Subtitle -->
+  <text x="520.0" y="42" text-anchor="middle" fill="#f8f8f2" font-size="22" font-weight="bold">VectorRS: CPU SIMD Intrinsics Acceleration (Dim = 768)</text>
+  <text x="520.0" y="68" text-anchor="middle" fill="#9d9eb4" font-size="13">Comparing Scalar Baseline vs. AVX2 + FMA 256-bit Register Parallelism (Samples = 10,000)</text>
+
+  <!-- Legend -->
+  <rect x="390.0" y="88" width="16" height="16" rx="4" fill="#ff5555" />
+  <text x="415.0" y="101" fill="#f8f8f2" font-size="13" font-weight="600">Scalar Baseline</text>
+  
+  <rect x="550.0" y="88" width="16" height="16" rx="4" fill="#50fa7b" />
+  <text x="575.0" y="101" fill="#f8f8f2" font-size="13" font-weight="600">AVX2 + FMA SIMD</text>
+
+  <!-- Y-Axis Title (Rotated) -->
+  <text transform="rotate(-90)" x="-305.0" y="28" text-anchor="middle" fill="#bd93f9" font-size="12" font-weight="600" letter-spacing="0.5px">Average Execution Time (Lower is Better)</text>
+
+  <!-- Y-Axis Grid & Labels -->
+  <line x1="105.0" y1="465.0" x2="985.0" y2="465.0" stroke="#44475a" stroke-width="1.5" />
+  <line x1="105.0" y1="385.0" x2="985.0" y2="385.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="105.0" y1="305.0" x2="985.0" y2="305.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="105.0" y1="225.0" x2="985.0" y2="225.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+  <line x1="105.0" y1="145.0" x2="985.0" y2="145.0" stroke="#44475a" stroke-width="1" stroke-dasharray="4,4" />
+
+  <text x="93.0" y="469.0" text-anchor="end" fill="#6272a4" font-size="12">0 ns</text>
+  <text x="93.0" y="389.0" text-anchor="end" fill="#6272a4" font-size="12">400 ns</text>
+  <text x="93.0" y="309.0" text-anchor="end" fill="#6272a4" font-size="12">800 ns</text>
+  <text x="93.0" y="229.0" text-anchor="end" fill="#6272a4" font-size="12">1200 ns</text>
+  <text x="93.0" y="149.0" text-anchor="end" fill="#6272a4" font-size="12">1600 ns</text>
+
+  <!-- Group 1: Dot Product (Scalar: 808.5ns, SIMD: 59.0ns, 13.7x) -->
+  <rect x="153.3" y="303.3" width="40.0" height="161.7" rx="4.0" fill="#ff5555" opacity="0.9"/>
+  <text x="173.3" y="295.3" text-anchor="middle" fill="#ff79c6" font-size="11" font-weight="bold">808 ns</text>
+
+  <rect x="198.3" y="453.2" width="40.0" height="11.8" rx="4.0" fill="#50fa7b" opacity="0.9"/>
+  <text x="218.3" y="445.2" text-anchor="middle" fill="#50fa7b" font-size="11" font-weight="bold">59 ns</text>
+  <text x="218.3" y="426.2" text-anchor="middle" fill="#8be9fd" font-size="13" font-weight="bold">13.7x</text>
+  <text x="195.8" y="491.0" text-anchor="middle" fill="#f8f8f2" font-size="12" font-weight="bold">Dot Product</text>
+  <!-- Group 2: L2 Squared (Scalar: 999.0ns, SIMD: 68.4ns, 14.6x) -->
+  <rect x="295.0" y="265.2" width="40.0" height="199.8" rx="4.0" fill="#ff5555" opacity="0.9"/>
+  <text x="315.0" y="257.2" text-anchor="middle" fill="#ff79c6" font-size="11" font-weight="bold">999 ns</text>
+
+  <rect x="340.0" y="451.3" width="40.0" height="13.7" rx="4.0" fill="#50fa7b" opacity="0.9"/>
+  <text x="360.0" y="443.3" text-anchor="middle" fill="#50fa7b" font-size="11" font-weight="bold">68 ns</text>
+  <text x="360.0" y="424.3" text-anchor="middle" fill="#8be9fd" font-size="13" font-weight="bold">14.6x</text>
+  <text x="337.5" y="491.0" text-anchor="middle" fill="#f8f8f2" font-size="12" font-weight="bold">L2 Squared</text>
+  <!-- Group 3: Manhattan (L1) (Scalar: 1052.2ns, SIMD: 83.9ns, 12.5x) -->
+  <rect x="436.7" y="254.6" width="40.0" height="210.4" rx="4.0" fill="#ff5555" opacity="0.9"/>
+  <text x="456.7" y="246.6" text-anchor="middle" fill="#ff79c6" font-size="11" font-weight="bold">1052 ns</text>
+
+  <rect x="481.7" y="448.2" width="40.0" height="16.8" rx="4.0" fill="#50fa7b" opacity="0.9"/>
+  <text x="501.7" y="440.2" text-anchor="middle" fill="#50fa7b" font-size="11" font-weight="bold">84 ns</text>
+  <text x="501.7" y="421.2" text-anchor="middle" fill="#8be9fd" font-size="13" font-weight="bold">12.5x</text>
+  <text x="479.2" y="491.0" text-anchor="middle" fill="#f8f8f2" font-size="12" font-weight="bold">Manhattan (L1)</text>
+  <!-- Group 4: Cosine Sim (Scalar: 1191.3ns, SIMD: 100.9ns, 11.8x) -->
+  <rect x="578.3" y="226.7" width="40.0" height="238.3" rx="4.0" fill="#ff5555" opacity="0.9"/>
+  <text x="598.3" y="218.7" text-anchor="middle" fill="#ff79c6" font-size="11" font-weight="bold">1191 ns</text>
+
+  <rect x="623.3" y="444.8" width="40.0" height="20.2" rx="4.0" fill="#50fa7b" opacity="0.9"/>
+  <text x="643.3" y="436.8" text-anchor="middle" fill="#50fa7b" font-size="11" font-weight="bold">101 ns</text>
+  <text x="643.3" y="417.8" text-anchor="middle" fill="#8be9fd" font-size="13" font-weight="bold">11.8x</text>
+  <text x="620.8" y="491.0" text-anchor="middle" fill="#f8f8f2" font-size="12" font-weight="bold">Cosine Sim</text>
+  <!-- Group 5: Minkowski (L3) (Scalar: 1024.6ns, SIMD: 140.1ns, 7.3x) -->
+  <rect x="720.0" y="260.1" width="40.0" height="204.9" rx="4.0" fill="#ff5555" opacity="0.9"/>
+  <text x="740.0" y="252.1" text-anchor="middle" fill="#ff79c6" font-size="11" font-weight="bold">1025 ns</text>
+
+  <rect x="765.0" y="437.0" width="40.0" height="28.0" rx="4.0" fill="#50fa7b" opacity="0.9"/>
+  <text x="785.0" y="429.0" text-anchor="middle" fill="#50fa7b" font-size="11" font-weight="bold">140 ns</text>
+  <text x="785.0" y="410.0" text-anchor="middle" fill="#8be9fd" font-size="13" font-weight="bold">7.3x</text>
+  <text x="762.5" y="491.0" text-anchor="middle" fill="#f8f8f2" font-size="12" font-weight="bold">Minkowski (L3)</text>
+  <rect x="851.7" y="140.0" width="105.0" height="370.0" rx="8.0" fill="none" stroke="#6272a4" stroke-dasharray="3,3" stroke-width="1"/>
+  <!-- Group 6: Average (Scalar: 1015.1ns, SIMD: 90.5ns, 11.2x) -->
+  <rect x="861.7" y="262.0" width="40.0" height="203.0" rx="4.0" fill="#ff5555" opacity="0.9"/>
+  <text x="881.7" y="254.0" text-anchor="middle" fill="#ff79c6" font-size="11" font-weight="bold">1015 ns</text>
+
+  <rect x="906.7" y="446.9" width="40.0" height="18.1" rx="4.0" fill="#50fa7b" opacity="0.9"/>
+  <text x="926.7" y="438.9" text-anchor="middle" fill="#50fa7b" font-size="11" font-weight="bold">90 ns</text>
+  <text x="926.7" y="419.9" text-anchor="middle" fill="#8be9fd" font-size="13" font-weight="bold">11.2x</text>
+  <text x="904.2" y="491.0" text-anchor="middle" fill="#50fa7b" font-size="12" font-weight="bold">Average</text>
+
+  <!-- X-Axis Title -->
+  <text x="520.0" y="523.0" text-anchor="middle" fill="#bd93f9" font-size="12" font-weight="600" letter-spacing="0.5px">Distance &amp; Similarity Metric (Raw Vector Space)</text>
+
+  <!-- Footer -->
+  <text x="520.0" y="585" text-anchor="middle" fill="#6272a4" font-size="12">Executed via Cargo Criterion Benchmark (black_box loop) | vector-rs</text>
+</svg>
