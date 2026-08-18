@@ -107,7 +107,7 @@ fn bench_cuda_knn_batch(c: &mut Criterion) {
 
     if let Ok(sample_size_str) = std::env::var("CRITERION_SAMPLE_SIZE") {
         if let Ok(sample_size) = sample_size_str.parse::<usize>() {
-            group.sample_size(sample_size);
+            group.sample_size(sample_size.max(10));
         }
     }
 
@@ -138,7 +138,7 @@ fn bench_cuda_kmeans(c: &mut Criterion) {
 
     if let Ok(sample_size_str) = std::env::var("CRITERION_SAMPLE_SIZE") {
         if let Ok(sample_size) = sample_size_str.parse::<usize>() {
-            group.sample_size(sample_size);
+            group.sample_size(sample_size.max(10));
         }
     }
 
