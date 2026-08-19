@@ -113,7 +113,14 @@ impl CudaKnnEngine {
 
         // Pre-allocate and upload dataset into GPU VRAM once if device is available
         let (gpu_dataset, gpu_norms) = if let Some(dev) = context.cuda_device() {
-            let d_d = dev.htod_copy(dataset.to_vec()).ok().map(std::sync::Arc::new);
+            // Transpose dataset to SoA (Structure of Arrays) for perfect memory coalescing on GPU
+            let mut soa_dataset = vec![0.0f32; dataset.len()];
+            for i in 0..num_vectors {
+                for d in 0..dimension {
+                    soa_dataset[d * num_vectors + i] = dataset[i * dimension + d];
+                }
+            }
+            let d_d = dev.htod_copy(soa_dataset).ok().map(std::sync::Arc::new);
             let d_n = dev.htod_copy(data_norms.clone()).ok().map(std::sync::Arc::new);
             (d_d, d_n)
         } else {
@@ -192,7 +199,13 @@ impl CudaKnnEngine {
         let (d_dataset_ref, d_data_norms_ref) = match (&self.d_dataset, &self.d_data_norms) {
             (Some(d), Some(n)) => (d.as_ref(), n.as_ref()),
             _ => {
-                d_dataset_temp = dev.htod_copy(self.dataset.as_slice().to_vec())?;
+                let mut soa_dataset = vec![0.0f32; self.dataset.len()];
+                for i in 0..self.num_vectors {
+                    for d in 0..self.dimension {
+                        soa_dataset[d * self.num_vectors + i] = self.dataset.as_slice()[i * self.dimension + d];
+                    }
+                }
+                d_dataset_temp = dev.htod_copy(soa_dataset)?;
                 d_data_norms_temp = dev.htod_copy(self.data_norms.as_slice().to_vec())?;
                 (&d_dataset_temp, &d_data_norms_temp)
             }
@@ -202,7 +215,11 @@ impl CudaKnnEngine {
             .get_func("knn_module", "knn_compute_distance_matrix")
             .ok_or("knn_compute_distance_matrix not found")?;
 
-        let block_dim = (32u32, 32u32, 1u32);
+        let topk_func = dev
+            .get_func("knn_module", "knn_topk_select")
+            .ok_or("knn_topk_select not found")?;
+
+        let block_dim = (32u32, 8u32, 1u32); // 32x8 threads, computing 4 rows per thread
         let grid_dim = (
             (self.num_vectors as u32).div_ceil(32).max(1),
             (q_count as u32).div_ceil(32).max(1),
@@ -245,50 +262,46 @@ impl CudaKnnEngine {
             )?;
         }
 
-        let dist_matrix = dev.dtoh_sync_copy(&d_dist_matrix)?;
-        let metric = self.metric;
+        let mut d_topk_distances = dev.alloc_zeros::<f32>(q_count * effective_k)?;
+        let mut d_topk_indices = dev.alloc_zeros::<i32>(q_count * effective_k)?;
 
-        // Top-K reduction from computed distance matrix
+        let topk_cfg = LaunchConfig {
+            grid_dim: (q_count as u32, 1, 1),
+            block_dim: (32, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        unsafe {
+            topk_func.launch(
+                topk_cfg,
+                (
+                    &d_dist_matrix,
+                    &mut d_topk_distances,
+                    &mut d_topk_indices,
+                    q_count as i32,
+                    self.num_vectors as i32,
+                    effective_k as i32,
+                    metric_code,
+                ),
+            )?;
+        }
+
+        let h_topk_distances = dev.dtoh_sync_copy(&d_topk_distances)?;
+        let h_topk_indices = dev.dtoh_sync_copy(&d_topk_indices)?;
+
         let results: Vec<Vec<SearchResult>> = (0..q_count)
-            .into_par_iter()
             .map(|q_idx| {
-                let mut heap: BinaryHeap<Candidate> = BinaryHeap::with_capacity(effective_k + 1);
-                let row_start = q_idx * self.num_vectors;
-
-                for n_idx in 0..self.num_vectors {
-                    let dist = dist_matrix[row_start + n_idx];
-                    let heap_score = if metric.higher_is_better() {
-                        -dist
-                    } else {
-                        dist
-                    };
-
-                    if heap.len() < effective_k {
-                        heap.push(Candidate {
-                            id: n_idx as VectorId,
-                            distance: dist,
-                            heap_score,
-                        });
-                    } else if let Some(worst) = heap.peek()
-                        && heap_score < worst.heap_score
-                    {
-                        heap.pop();
-                        heap.push(Candidate {
-                            id: n_idx as VectorId,
-                            distance: dist,
-                            heap_score,
+                let mut top_k = Vec::with_capacity(effective_k);
+                for k in 0..effective_k {
+                    let idx = q_idx * effective_k + k;
+                    let vec_id = h_topk_indices[idx];
+                    if vec_id >= 0 {
+                        top_k.push(SearchResult {
+                            id: vec_id as VectorId,
+                            distance: h_topk_distances[idx],
                         });
                     }
                 }
-
-                let mut top_k = Vec::with_capacity(heap.len());
-                while let Some(candidate) = heap.pop() {
-                    top_k.push(SearchResult {
-                        id: candidate.id,
-                        distance: candidate.distance,
-                    });
-                }
-                top_k.reverse();
                 top_k
             })
             .collect();

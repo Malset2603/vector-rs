@@ -46,12 +46,12 @@ extern "C" __global__ void kmeans_assign_and_accumulate(
     int metric                               // 0..9
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x; // Vector index in [0, N)
-    if (idx >= N) return;
+    bool is_valid = (idx < N);
 
-    const float* vec = data + idx * D;
+    const float* vec = is_valid ? (data + idx * D) : nullptr;
 
     float vec_norm_sq = 0.0f;
-    if (metric == 2) {
+    if (is_valid && metric == 2) {
         if (D % 4 == 0) {
             const float4* v4 = reinterpret_cast<const float4*>(vec);
             int D4 = D / 4;
@@ -71,223 +71,268 @@ extern "C" __global__ void kmeans_assign_and_accumulate(
     float best_score = (metric == 1 || metric == 2) ? -FLT_MAX : FLT_MAX;
     float best_dist = 0.0f;
 
+    extern __shared__ float s_centroid[];
+
     for (int c = 0; c < C; ++c) {
-        const float* cent = centroids + c * D;
-        
-        switch (metric) {
-            case 0: { // L2 Squared Distance
-                float dist = 0.0f;
-                if (D % 4 == 0) {
-                    const float4* v4 = reinterpret_cast<const float4*>(vec);
-                    const float4* c4 = reinterpret_cast<const float4*>(cent);
-                    int D4 = D / 4;
-                    #pragma unroll 4
-                    for (int d = 0; d < D4; ++d) {
-                        float4 v = v4[d];
-                        float4 k = c4[d];
-                        float dx = v.x - k.x;
-                        float dy = v.y - k.y;
-                        float dz = v.z - k.z;
-                        float dw = v.w - k.w;
-                        dist += dx * dx + dy * dy + dz * dz + dw * dw;
+        // Collaboratively load the centroid into shared memory
+        for (int d = threadIdx.x; d < D; d += blockDim.x) {
+            s_centroid[d] = centroids[c * D + d];
+        }
+        __syncthreads(); // Ensure the centroid is fully loaded
+
+        if (is_valid) {
+            const float* cent = s_centroid;
+            
+            switch (metric) {
+                case 0: { // L2 Squared Distance
+                    float dist = 0.0f;
+                    if (D % 4 == 0) {
+                        const float4* v4 = reinterpret_cast<const float4*>(vec);
+                        const float4* c4 = reinterpret_cast<const float4*>(cent);
+                        int D4 = D / 4;
+                        #pragma unroll 4
+                        for (int d = 0; d < D4; ++d) {
+                            float4 v = v4[d];
+                            float4 k = c4[d];
+                            float dx = v.x - k.x;
+                            float dy = v.y - k.y;
+                            float dz = v.z - k.z;
+                            float dw = v.w - k.w;
+                            dist += dx * dx + dy * dy + dz * dz + dw * dw;
+                        }
+                    } else {
+                        #pragma unroll 4
+                        for (int d = 0; d < D; ++d) {
+                            float diff = vec[d] - cent[d];
+                            dist += diff * diff;
+                        }
                     }
-                } else {
+                    if (dist < best_score) {
+                        best_score = dist;
+                        best_dist = dist;
+                        best_c = c;
+                    }
+                    break;
+                }
+                case 1: { // Dot Product
+                    float dot = 0.0f;
+                    if (D % 4 == 0) {
+                        const float4* v4 = reinterpret_cast<const float4*>(vec);
+                        const float4* c4 = reinterpret_cast<const float4*>(cent);
+                        int D4 = D / 4;
+                        #pragma unroll 4
+                        for (int d = 0; d < D4; ++d) {
+                            float4 v = v4[d];
+                            float4 k = c4[d];
+                            dot += v.x * k.x + v.y * k.y + v.z * k.z + v.w * k.w;
+                        }
+                    } else {
+                        #pragma unroll 4
+                        for (int d = 0; d < D; ++d) {
+                            dot += vec[d] * cent[d];
+                        }
+                    }
+                    if (dot > best_score) {
+                        best_score = dot;
+                        best_dist = -dot;
+                        best_c = c;
+                    }
+                    break;
+                }
+                case 2: { // Cosine Similarity
+                    float dot = 0.0f;
+                    float cent_norm_sq = 0.0f;
+                    if (D % 4 == 0) {
+                        const float4* v4 = reinterpret_cast<const float4*>(vec);
+                        const float4* c4 = reinterpret_cast<const float4*>(cent);
+                        int D4 = D / 4;
+                        #pragma unroll 4
+                        for (int d = 0; d < D4; ++d) {
+                            float4 v = v4[d];
+                            float4 k = c4[d];
+                            dot += v.x * k.x + v.y * k.y + v.z * k.z + v.w * k.w;
+                            cent_norm_sq += k.x * k.x + k.y * k.y + k.z * k.z + k.w * k.w;
+                        }
+                    } else {
+                        #pragma unroll 4
+                        for (int d = 0; d < D; ++d) {
+                            dot += vec[d] * cent[d];
+                            cent_norm_sq += cent[d] * cent[d];
+                        }
+                    }
+                    float denom = sqrtf(vec_norm_sq) * sqrtf(cent_norm_sq);
+                    float cos_sim = (denom > 1e-9f) ? (dot / denom) : 0.0f;
+                    if (cos_sim > best_score) {
+                        best_score = cos_sim;
+                        best_dist = 1.0f - cos_sim;
+                        best_c = c;
+                    }
+                    break;
+                }
+                case 3: { // Manhattan (L1)
+                    float dist = 0.0f;
+                    #pragma unroll 4
+                    for (int d = 0; d < D; ++d) {
+                        dist += fabsf(vec[d] - cent[d]);
+                    }
+                    if (dist < best_score) {
+                        best_score = dist;
+                        best_dist = dist;
+                        best_c = c;
+                    }
+                    break;
+                }
+                case 4: { // Minkowski (p=3)
+                    float sum = 0.0f;
+                    #pragma unroll 4
+                    for (int d = 0; d < D; ++d) {
+                        float diff = fabsf(vec[d] - cent[d]);
+                        sum += diff * diff * diff;
+                    }
+                    float dist = cbrtf(sum);
+                    if (dist < best_score) {
+                        best_score = dist;
+                        best_dist = dist;
+                        best_c = c;
+                    }
+                    break;
+                }
+                case 5: { // Chebyshev (L_inf)
+                    float max_diff = 0.0f;
+                    #pragma unroll 4
+                    for (int d = 0; d < D; ++d) {
+                        float diff = fabsf(vec[d] - cent[d]);
+                        if (diff > max_diff) max_diff = diff;
+                    }
+                    if (max_diff < best_score) {
+                        best_score = max_diff;
+                        best_dist = max_diff;
+                        best_c = c;
+                    }
+                    break;
+                }
+                case 6: { // Thresholded Hamming
+                    float count = 0.0f;
+                    #pragma unroll 4
+                    for (int d = 0; d < D; ++d) {
+                        if (fabsf(vec[d] - cent[d]) > 1e-6f) count += 1.0f;
+                    }
+                    if (count < best_score) {
+                        best_score = count;
+                        best_dist = count;
+                        best_c = c;
+                    }
+                    break;
+                }
+                case 7: { // Standardized Mahalanobis
+                    float sum = 0.0f;
                     #pragma unroll 4
                     for (int d = 0; d < D; ++d) {
                         float diff = vec[d] - cent[d];
-                        dist += diff * diff;
+                        sum += diff * diff;
                     }
-                }
-                if (dist < best_score) {
-                    best_score = dist;
-                    best_dist = dist;
-                    best_c = c;
-                }
-                break;
-            }
-            case 1: { // Dot Product
-                float dot = 0.0f;
-                if (D % 4 == 0) {
-                    const float4* v4 = reinterpret_cast<const float4*>(vec);
-                    const float4* c4 = reinterpret_cast<const float4*>(cent);
-                    int D4 = D / 4;
-                    #pragma unroll 4
-                    for (int d = 0; d < D4; ++d) {
-                        float4 v = v4[d];
-                        float4 k = c4[d];
-                        dot += v.x * k.x + v.y * k.y + v.z * k.z + v.w * k.w;
+                    float dist = sqrtf(sum);
+                    if (dist < best_score) {
+                        best_score = dist;
+                        best_dist = dist;
+                        best_c = c;
                     }
-                } else {
+                    break;
+                }
+                case 8: { // Weighted Jaccard
+                    float sum_min = 0.0f, sum_max = 0.0f;
                     #pragma unroll 4
                     for (int d = 0; d < D; ++d) {
-                        dot += vec[d] * cent[d];
+                        float a = fabsf(vec[d]), b = fabsf(cent[d]);
+                        sum_min += fminf(a, b);
+                        sum_max += fmaxf(a, b);
                     }
-                }
-                if (dot > best_score) {
-                    best_score = dot;
-                    best_dist = -dot;
-                    best_c = c;
-                }
-                break;
-            }
-            case 2: { // Cosine Similarity
-                float dot = 0.0f;
-                float cent_norm_sq = 0.0f;
-                if (D % 4 == 0) {
-                    const float4* v4 = reinterpret_cast<const float4*>(vec);
-                    const float4* c4 = reinterpret_cast<const float4*>(cent);
-                    int D4 = D / 4;
-                    #pragma unroll 4
-                    for (int d = 0; d < D4; ++d) {
-                        float4 v = v4[d];
-                        float4 k = c4[d];
-                        dot += v.x * k.x + v.y * k.y + v.z * k.z + v.w * k.w;
-                        cent_norm_sq += k.x * k.x + k.y * k.y + k.z * k.z + k.w * k.w;
+                    float dist = (sum_max <= 1e-9f) ? 0.0f : (1.0f - sum_min / sum_max);
+                    if (dist < best_score) {
+                        best_score = dist;
+                        best_dist = dist;
+                        best_c = c;
                     }
-                } else {
+                    break;
+                }
+                case 9: { // Hellinger
+                    float sum = 0.0f;
                     #pragma unroll 4
                     for (int d = 0; d < D; ++d) {
-                        dot += vec[d] * cent[d];
-                        cent_norm_sq += cent[d] * cent[d];
+                        float diff = sqrtf(fabsf(vec[d])) - sqrtf(fabsf(cent[d]));
+                        sum += diff * diff;
                     }
+                    float dist = sqrtf(0.5f * sum);
+                    if (dist < best_score) {
+                        best_score = dist;
+                        best_dist = dist;
+                        best_c = c;
+                    }
+                    break;
                 }
-                float denom = sqrtf(vec_norm_sq) * sqrtf(cent_norm_sq);
-                float cos_sim = (denom > 1e-9f) ? (dot / denom) : 0.0f;
-                if (cos_sim > best_score) {
-                    best_score = cos_sim;
-                    best_dist = 1.0f - cos_sim;
-                    best_c = c;
-                }
-                break;
             }
-            case 3: { // Manhattan (L1)
-                float dist = 0.0f;
-                #pragma unroll 4
-                for (int d = 0; d < D; ++d) {
-                    dist += fabsf(vec[d] - cent[d]);
-                }
-                if (dist < best_score) {
-                    best_score = dist;
-                    best_dist = dist;
-                    best_c = c;
-                }
-                break;
-            }
-            case 4: { // Minkowski (p=3)
-                float sum = 0.0f;
-                #pragma unroll 4
-                for (int d = 0; d < D; ++d) {
-                    float diff = fabsf(vec[d] - cent[d]);
-                    sum += diff * diff * diff;
-                }
-                float dist = cbrtf(sum);
-                if (dist < best_score) {
-                    best_score = dist;
-                    best_dist = dist;
-                    best_c = c;
-                }
-                break;
-            }
-            case 5: { // Chebyshev (L_inf)
-                float max_diff = 0.0f;
-                #pragma unroll 4
-                for (int d = 0; d < D; ++d) {
-                    float diff = fabsf(vec[d] - cent[d]);
-                    if (diff > max_diff) max_diff = diff;
-                }
-                if (max_diff < best_score) {
-                    best_score = max_diff;
-                    best_dist = max_diff;
-                    best_c = c;
-                }
-                break;
-            }
-            case 6: { // Thresholded Hamming
-                float count = 0.0f;
-                #pragma unroll 4
-                for (int d = 0; d < D; ++d) {
-                    if (fabsf(vec[d] - cent[d]) > 1e-6f) count += 1.0f;
-                }
-                if (count < best_score) {
-                    best_score = count;
-                    best_dist = count;
-                    best_c = c;
-                }
-                break;
-            }
-            case 7: { // Standardized Mahalanobis
-                float sum = 0.0f;
-                #pragma unroll 4
-                for (int d = 0; d < D; ++d) {
-                    float diff = vec[d] - cent[d];
-                    sum += diff * diff;
-                }
-                float dist = sqrtf(sum);
-                if (dist < best_score) {
-                    best_score = dist;
-                    best_dist = dist;
-                    best_c = c;
-                }
-                break;
-            }
-            case 8: { // Weighted Jaccard
-                float sum_min = 0.0f, sum_max = 0.0f;
-                #pragma unroll 4
-                for (int d = 0; d < D; ++d) {
-                    float a = fabsf(vec[d]), b = fabsf(cent[d]);
-                    sum_min += fminf(a, b);
-                    sum_max += fmaxf(a, b);
-                }
-                float dist = (sum_max <= 1e-9f) ? 0.0f : (1.0f - sum_min / sum_max);
-                if (dist < best_score) {
-                    best_score = dist;
-                    best_dist = dist;
-                    best_c = c;
-                }
-                break;
-            }
-            case 9: { // Hellinger
-                float sum = 0.0f;
-                #pragma unroll 4
-                for (int d = 0; d < D; ++d) {
-                    float diff = sqrtf(fabsf(vec[d])) - sqrtf(fabsf(cent[d]));
-                    sum += diff * diff;
-                }
-                float dist = sqrtf(0.5f * sum);
-                if (dist < best_score) {
-                    best_score = dist;
-                    best_dist = dist;
-                    best_c = c;
-                }
-                break;
-            }
+        }
+        __syncthreads(); // Ensure all threads are done with this centroid before the next iteration loads the next one
+    }
+
+    if (is_valid) {
+        if (assignments != nullptr) {
+            assignments[idx] = best_c;
+        }
+        if (inertias != nullptr) {
+            inertias[idx] = best_dist;
         }
     }
 
-    if (assignments != nullptr) {
-        assignments[idx] = best_c;
-    }
-    if (inertias != nullptr) {
-        inertias[idx] = best_dist;
-    }
+    // Warp-Aggregated Atomics to eliminate Global Memory Contention
+    unsigned int active = __ballot_sync(0xffffffff, is_valid);
+    int lane = threadIdx.x % 32;
 
-    // Atomic update of centroid accumulators
-    atomicAdd(&cluster_counts[best_c], 1);
-    if (D % 4 == 0) {
-        const float4* v4 = reinterpret_cast<const float4*>(vec);
-        int D4 = D / 4;
-        for (int d = 0; d < D4; ++d) {
-            float4 v = v4[d];
-            int base = best_c * D + d * 4;
-            atomicAdd(&cluster_sums[base + 0], v.x);
-            atomicAdd(&cluster_sums[base + 1], v.y);
-            atomicAdd(&cluster_sums[base + 2], v.z);
-            atomicAdd(&cluster_sums[base + 3], v.w);
+    while (active != 0) {
+        int leader = __ffs(active) - 1;
+        int target_c = __shfl_sync(active, best_c, leader);
+        unsigned int match = __ballot_sync(active, is_valid && (best_c == target_c));
+
+        // Leader thread adds the aggregated count for this cluster in the warp
+        if (lane == leader) {
+            atomicAdd(&cluster_counts[target_c], __popc(match));
         }
-    } else {
-        for (int d = 0; d < D; ++d) {
-            atomicAdd(&cluster_sums[best_c * D + d], vec[d]);
+
+        // Warp-parallel vector sum reduction for target_c
+        if (D % 4 == 0) {
+            int D4 = D / 4;
+            const float4* v4 = (is_valid && vec != nullptr) ? reinterpret_cast<const float4*>(vec) : nullptr;
+            for (int d = 0; d < D4; ++d) {
+                float4 v = (is_valid && best_c == target_c && v4 != nullptr) ? v4[d] : make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+                #pragma unroll
+                for (int offset = 16; offset > 0; offset /= 2) {
+                    v.x += __shfl_down_sync(0xffffffff, v.x, offset);
+                    v.y += __shfl_down_sync(0xffffffff, v.y, offset);
+                    v.z += __shfl_down_sync(0xffffffff, v.z, offset);
+                    v.w += __shfl_down_sync(0xffffffff, v.w, offset);
+                }
+                if (lane == 0) {
+                    int base = target_c * D + d * 4;
+                    atomicAdd(&cluster_sums[base + 0], v.x);
+                    atomicAdd(&cluster_sums[base + 1], v.y);
+                    atomicAdd(&cluster_sums[base + 2], v.z);
+                    atomicAdd(&cluster_sums[base + 3], v.w);
+                }
+            }
+        } else {
+            for (int d = 0; d < D; ++d) {
+                float v = (is_valid && best_c == target_c && vec != nullptr) ? vec[d] : 0.0f;
+                #pragma unroll
+                for (int offset = 16; offset > 0; offset /= 2) {
+                    v += __shfl_down_sync(0xffffffff, v, offset);
+                }
+                if (lane == 0) {
+                    atomicAdd(&cluster_sums[target_c * D + d], v);
+                }
+            }
         }
+
+        active &= ~match;
     }
 }
 
@@ -322,19 +367,29 @@ extern "C" __global__ void kmeans_update_centroids(
         centroids[idx] = new_val;
     }
 
-    // Block-level reduction of shift
-    __shared__ float s_shift[BLOCK_SIZE];
-    s_shift[threadIdx.x] = local_shift;
-    __syncthreads();
-
-    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (threadIdx.x < s) {
-            s_shift[threadIdx.x] += s_shift[threadIdx.x + s];
-        }
-        __syncthreads();
+    // Warp-level reduction of shift
+    for (int offset = 16; offset > 0; offset /= 2) {
+        local_shift += __shfl_down_sync(0xffffffff, local_shift, offset);
     }
 
-    if (threadIdx.x == 0 && shifts != nullptr) {
-        shifts[c] = s_shift[0];
+    // Shared memory for warp results (max 32 warps per block)
+    static __shared__ float warp_sums[32];
+    int lane = threadIdx.x % 32;
+    int warp = threadIdx.x / 32;
+    
+    if (lane == 0) {
+        warp_sums[warp] = local_shift;
+    }
+    __syncthreads();
+    
+    // First warp reduces the warp_sums
+    if (warp == 0) {
+        float warp_sum = (lane < (blockDim.x / 32)) ? warp_sums[lane] : 0.0f;
+        for (int offset = 16; offset > 0; offset /= 2) {
+            warp_sum += __shfl_down_sync(0xffffffff, warp_sum, offset);
+        }
+        if (lane == 0 && shifts != nullptr) {
+            shifts[c] = warp_sum;
+        }
     }
 }

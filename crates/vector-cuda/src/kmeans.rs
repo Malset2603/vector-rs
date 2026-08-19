@@ -133,7 +133,7 @@ impl CudaKMeansEngine {
         let cfg_assign = LaunchConfig {
             grid_dim: (grid_dim_assign.max(1), 1, 1),
             block_dim: (block_dim as u32, 1, 1),
-            shared_mem_bytes: 0,
+            shared_mem_bytes: (dimension * 4) as u32,
         };
 
         let grid_dim_zero = (k * dimension).div_ceil(block_dim) as u32;

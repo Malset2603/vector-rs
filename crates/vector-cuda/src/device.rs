@@ -152,7 +152,7 @@ impl CudaDeviceContext {
                 let _ = dev.load_ptx(
                     KNN_PTX.into(),
                     "knn_module",
-                    &["knn_compute_distance_matrix"],
+                    &["knn_compute_distance_matrix", "knn_topk_select"],
                 );
 
                 Ok(Self {
@@ -209,7 +209,7 @@ impl CudaDeviceContext {
                 let _ = dev.load_ptx(
                     KNN_PTX.into(),
                     "knn_module",
-                    &["knn_compute_distance_matrix"],
+                    &["knn_compute_distance_matrix", "knn_topk_select"],
                 );
 
                 Self {
